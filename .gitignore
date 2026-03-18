@@ -1,0 +1,14 @@
+# Cartelle di build e log di ROS
+build/
+install/
+log/
+
+# File temporanei e di sistema
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Compilazione C++
+*.o
+*.so
+*.a
