@@ -1,40 +1,39 @@
 //ShipMotionPlugin.cc
 
-#include "ship_gazebo/ShipMotionPlugin.hh" //include l' header
-#include <gz/plugin/Register.hh> //contiene le macro GZ_ADD_PLUGIN e GZ_ADD_PLUGIN_ALIAS che servono a registrare plugin in gazebo
+#include "ship_gazebo/ShipMotionPlugin.hh" 
+#include <gz/plugin/Register.hh> 
 #include <chrono>
 #include <cmath>
 #include <gz/sim/components/JointPositionReset.hh>
 
 GZ_ADD_PLUGIN(
-    ship_gazebo::ShipMotionPlugin, //nome della classe
-    gz::sim::System, //è un System
-    gz::sim::ISystemConfigure, //implementa Configure
-    gz::sim::ISystemPreUpdate //implementa PreUpdate
+    ship_gazebo::ShipMotionPlugin, 
+    gz::sim::System, 
+    gz::sim::ISystemConfigure, 
+    gz::sim::ISystemPreUpdate 
 )
 
 GZ_ADD_PLUGIN_ALIAS(
-    ship_gazebo::ShipMotionPlugin, //aggiunge una stringa al plugin
+    ship_gazebo::ShipMotionPlugin, 
     "ship_gazebo::ShipMotionPlugin"
 )
 
 namespace ship_gazebo {
 
-    void ShipMotionPlugin::Configure( //configure appartiene alla classe ShipMotionPlugin
-        const gz::sim::Entity &_entity, //i parametri devono essere identici a quelli dell' header
+    void ShipMotionPlugin::Configure( 
+        const gz::sim::Entity &_entity, 
         const std::shared_ptr<const sdf::Element> &_sdf,
         gz::sim::EntityComponentManager &_ecm,
-        gz::sim::EventManager &/*_eventMgr*/) //il nome è commentato perché non viene usato, evita un warning di compilazione
+        gz::sim::EventManager &/*_eventMgr*/) //to avoid a warning (we don't use _eventMgr)
     {
-        this->model = gz::sim::Model(_entity) ; 
-        /* model è la variabile membro della classe dichiarata nell' header
-        _entity è un semplice intero, lo si dichiamara come gz::sim::Model per avere metodi utili
-        */
+        this->model = gz::sim::Model(_entity) ; //assegna un entity a model 
+    
         if(!this->model.Valid(_ecm)) { //controlla che l'entity esista nel database (_ecm)
             gzerr << "[ShipMotionPlugin] Entity not valid\n" ; 
             return ; 
         }
-
+        
+        // funziona lambda: funzione temporanea dentro un'altra funzione
         /* definiamo una funzione lambda che legge un parametro double dall' SDF se esiste*/
         auto loadParam = [&](const std::string &name,double &param) {
             /* [&] per accedere per riferimento alle variabili locali del metodo
@@ -94,15 +93,14 @@ namespace ship_gazebo {
         double heavePos = this->heaveAmplitude * std::sin(2.0*M_PI*this->heaveFrequency*t+this->heavePhase) ; 
 
         //step 4 - set joints position
-
         auto setJointPos = [&](gz::sim::Entity joint,double pos) {
             //if joint is not configured, skip
             if(joint == gz::sim::kNullEntity)
                 return ; 
             
-            //JointPositionReset è un component speciale che forza la posizione del joint bypassando la fisica [ JointPosition è di sola lettura ] 
+            //JointPositionReset forza la posizione del joint bypassando la fisica [ JointPosition è di sola lettura ] 
             
-            //cerca il component sul joint, restituisce il puntatore vado se il component esiste, nullptr se non esiste
+            //cerca il component sul joint, restituisce il puntatore se il component esiste, nullptr se non esiste
             auto* resetComp = _ecm.Component<gz::sim::components::JointPositionReset>(joint);
             //create the component JointPositionReset if it doesn't exist (CreateComponent verrà chiamato solo la prima volta)
             if(resetComp)

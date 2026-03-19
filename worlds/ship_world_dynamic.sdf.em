@@ -1,3 +1,70 @@
+@# -----------------
+@# config variables 
+@# -----------------
+@{
+
+# ----- ship parameters ----------------------------------- 
+
+ship_size = (20.0,150.0,10.0) #width #length #height
+
+ship_mass = 5000.0 #kg
+
+ship_inertia = [
+    [500.0, 0.0, 0.0],
+    [0.0, 500.0, 0.0],
+    [0.0, 0.0, 500.0]
+] #kg*m^2
+
+CoG_pose = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+
+#---------------------------------------------------------
+#  ------ corridor parameters ----------------------------
+
+
+corridor_size = (6.305, 20.579, 3.677)
+scale = tuple(a / b for a, b in zip(corridor_size, ship_size))
+
+
+corridor_pose = (5.0, 40.0, 2.50, 0.0, 0.0, 0.0) # wrt the center of the ship (as the world)
+bias =(0.078, 0.690, 0.445, 0.0, 0.0, 0.0)
+
+corridor_pose = tuple(a+b for a,b in zip(corridor_pose,bias))
+
+corridor_mass = 5000.0 #kg
+corridor_inertia = [
+    [500.0, 0.0, 0.0],
+    [0.0, 500.0, 0.0],
+    [0.0, 0.0, 500.0]
+] #kg*m^2
+
+mu = 1.0 
+mu2 = 1.0 
+#-------------------------------------------------------
+# ----- motion parameters ------------------------------
+
+roll_amplitude  = 0.0 #rad
+roll_frequency  = 0.0 #Hz
+roll_phase      = 0.0 #rad 
+
+pitch_amplitude = 0.0
+pitch_frequency = 0.0
+pitch_phase     = 0.0
+
+heave_amplitude = 0.0
+heave_frequency = 0.0
+heave_phase     = 0.0
+
+roll_bound = 0.5 #rad 
+pitch_bound = 0.2 #rad
+heave_bound = 2.0 #meters
+
+revolute_damping = 10.0 
+revolute_friction = 5.0 
+
+prismatic_damping = 10.0 
+prismatic_friction = 5.0 
+# ----------------------------------------------------
+}@
 
 <?xml version="1.0" ?> <!-- define the version (xml file)-->
 <sdf version="1.8"> 
@@ -80,10 +147,10 @@
                 <axis>
                     <xyz>0 1 0</xyz> <!-- roll, revolute around y axis (X e Y are SWITCHED)-->
                     <limit> <!-- boundaries of roll (radiant)-->
-                        <lower>-0.5</lower> 
-                        <upper>0.5</upper>
+                        <lower>-@(roll_bound)</lower> 
+                        <upper>@(roll_bound)</upper>
                     </limit>
-                    <dynamics><damping>10.0</damping><friction>5.0</friction></dynamics>
+                    <dynamics><damping>@(revolute_damping)</damping><friction>@(revolute_friction)</friction></dynamics>
                 </axis>
             </joint>
 
@@ -104,21 +171,21 @@
                 <axis>
                     <xyz>1 0 0</xyz> <!-- pitch, revolute around x axis (X e Y are SWITCHED!)-->
                     <limit> <!-- boundaries of pitch (radiant)-->
-                        <lower>-0.2</lower> 
-                        <upper>0.2</upper>
+                        <lower>-@(pitch_bound)</lower> 
+                        <upper>@(pitch_bound)</upper>
                     </limit>
-                    <dynamics><damping>10.0</damping><friction>5.0</friction></dynamics>
+                    <dynamics><damping>@(revolute_damping)</damping><friction>@(revolute_friction)</friction></dynamics>
                 </axis>
             </joint>
 
             <link name="CoG_link">
-                <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose> <!-- CoG pose-->
+                <pose>@(CoG_pose[0]) @(CoG_pose[1]) @(CoG_pose[2]) @(CoG_pose[3]) @(CoG_pose[4]) @(CoG_pose[5])</pose> <!-- CoG pose-->
                 <inertial>
-                    <mass>5000.0</mass> <!-- mass of the ship-->
+                    <mass>@(ship_mass)</mass> <!-- mass of the ship-->
                     <inertia>
-                        <ixx>500.0</ixx> <!-- inertial matrix of the ship-->
-                        <iyy>500.0</iyy>
-                        <izz>500.0</izz>
+                        <ixx>@(ship_inertia[0][0])</ixx> <!-- inertial matrix of the ship-->
+                        <iyy>@(ship_inertia[1][1])</iyy>
+                        <izz>@(ship_inertia[2][2])</izz>
                     </inertia>
                 </inertial>
 
@@ -126,7 +193,7 @@
                 <visual name ="ship_hull">
                     <geometry>
                         <box>
-                            <size>20.0 150.0 10.0</size> <!-- dimension X Y Z-->
+                            <size>@(ship_size[0]) @(ship_size[1]) @(ship_size[2])</size> <!-- dimension X Y Z-->
                         </box>
                     </geometry>
                     <material>
@@ -143,21 +210,21 @@
                 <axis>
                     <xyz>0 0 1</xyz>
                     <limit>
-                        <lower>-2.0</lower>
-                        <upper>2.0</upper>
+                        <lower>-@(heave_bound)</lower>
+                        <upper>@(heave_bound)</upper>
                     </limit>
-                    <dynamics><damping>10.0</damping><friction>5.0</friction></dynamics>
+                    <dynamics><damping>@(prismatic_damping)</damping><friction>@(prismatic_friction)</friction></dynamics>
                 </axis>
             </joint>
             
             <link name="corridor_link"> 
-                <pose>5.078 40.69 2.945 0.0 0.0 0.0</pose>
+                <pose>@(corridor_pose[0]) @(corridor_pose[1]) @(corridor_pose[2]) @(corridor_pose[3]) @(corridor_pose[4]) @(corridor_pose[5])</pose>
                 <inertial>
-                    <mass>5000.0</mass>
+                    <mass>@(corridor_mass)</mass>
                     <inertia>
-                        <ixx>500.0</ixx> 
-                        <iyy>500.0</iyy>
-                        <izz>500.0</izz>
+                        <ixx>@(corridor_inertia[0][0])</ixx> 
+                        <iyy>@(corridor_inertia[1][1])</iyy>
+                        <izz>@(corridor_inertia[2][2])</izz>
                     </inertia>
                 </inertial>
 
@@ -165,7 +232,7 @@
                     <geometry>
                         <mesh>
                             <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_corridor.dae</uri> 
-                            <scale>0.31525 0.13719333333333333 0.3677</scale> 
+                            <scale>@(scale[0]) @(scale[1]) @(scale[2])</scale> 
                         </mesh>
                     </geometry>
                 </visual>
@@ -174,7 +241,7 @@
                     <geometry>
                         <mesh>
                             <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_corridor.stl</uri> 
-                            <scale>0.31525 0.13719333333333333 0.3677</scale>
+                            <scale>@(scale[0]) @(scale[1]) @(scale[2])</scale>
                         </mesh>
                     </geometry>
                     <surface>
@@ -183,7 +250,7 @@
                         </contact>
                         <friction>
                             <ode>
-                                <mu>1.0</mu> <mu2>1.0</mu2>
+                                <mu>@(mu)</mu> <mu2>@(mu2)</mu2>
                             </ode>
                         </friction>
                     </surface> 
@@ -202,19 +269,19 @@
                 name="ship_gazebo::ShipMotionPlugin">
 
                 <!--roll-->
-                <roll_amplitude>0.5</roll_amplitude>
-                <roll_frequency>0.5</roll_frequency>
-                <roll_phase>0.0</roll_phase>
+                <roll_amplitude>@(roll_amplitude)</roll_amplitude>
+                <roll_frequency>@(roll_frequency)</roll_frequency>
+                <roll_phase>@(roll_phase)</roll_phase>
 
                 <!--pitch-->
-                <pitch_amplitude>0.2</pitch_amplitude>
-                <pitch_frequency>0.3</pitch_frequency>
-                <pitch_phase>0.5</pitch_phase>
+                <pitch_amplitude>@(pitch_amplitude)</pitch_amplitude>
+                <pitch_frequency>@(pitch_frequency)</pitch_frequency>
+                <pitch_phase>@(pitch_phase)</pitch_phase>
 
                 <!--heave-->
-                <heave_amplitude>0.3</heave_amplitude>
-                <heave_frequency>0.3</heave_frequency>
-                <heave_phase>0.2</heave_phase>
+                <heave_amplitude>@(heave_amplitude)</heave_amplitude>
+                <heave_frequency>@(heave_frequency)</heave_frequency>
+                <heave_phase>@(heave_phase)</heave_phase>
             </plugin>
 
         </model>

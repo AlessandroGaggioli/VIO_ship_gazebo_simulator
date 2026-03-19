@@ -113,5 +113,5 @@ source install/setup.bash
 # Execution
 To run the simulation: 
 ```bash
-    gz sim -r ~/ship_ws/install/ship_gazebo/share/ship_gazebo/worlds/ship_world_dynamic.sdf
+    ros2 launch ship_gazebo ship_sim.launch.py
 ```

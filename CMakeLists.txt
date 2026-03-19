@@ -46,6 +46,7 @@ endif()
 install(DIRECTORY
   worlds
   models
+  launch
   DESTINATION share/${PROJECT_NAME}
 )
 
