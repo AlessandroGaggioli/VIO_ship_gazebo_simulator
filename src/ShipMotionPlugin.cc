@@ -1,10 +1,6 @@
 //ShipMotionPlugin.cc
 
-#include "ship_gazebo/ShipMotionPlugin.hh" 
-#include <gz/plugin/Register.hh> 
-#include <chrono>
-#include <cmath>
-#include <gz/sim/components/JointPositionReset.hh>
+#include "ship_gazebo/ShipMotionPlugin.hh"         
 
 GZ_ADD_PLUGIN(
     ship_gazebo::ShipMotionPlugin, 
@@ -88,29 +84,69 @@ namespace ship_gazebo {
         double t = std::chrono::duration<double>(_info.simTime).count() ; //<double> to convert the object std::chrono::duration in seconds, count() to estract the numeric value
         
         //step 3  - motion law - pos(t) = A * sin(2 pi_greco frequence t + phase) 
-        double rollPos = this->rollAmplitude * std::sin(2.0*M_PI*this->rollFrequency*t+this->rollPhase) ; 
-        double pitchPos = this->pitchAmplitude * std::sin(2.0*M_PI*this->pitchFrequency*t+this->pitchPhase) ; 
-        double heavePos = this->heaveAmplitude * std::sin(2.0*M_PI*this->heaveFrequency*t+this->heavePhase) ; 
+      
+        double rollPos = 0.0 ; 
+        double pitchPos = 0.0 ; 
+        double heavePos = 0.0 ; 
 
-        //step 4 - set joints position
-        auto setJointPos = [&](gz::sim::Entity joint,double pos) {
-            //if joint is not configured, skip
-            if(joint == gz::sim::kNullEntity)
-                return ; 
-            
-            //JointPositionReset forza la posizione del joint bypassando la fisica [ JointPosition è di sola lettura ] 
-            
-            //cerca il component sul joint, restituisce il puntatore se il component esiste, nullptr se non esiste
-            auto* resetComp = _ecm.Component<gz::sim::components::JointPositionReset>(joint);
-            //create the component JointPositionReset if it doesn't exist (CreateComponent verrà chiamato solo la prima volta)
-            if(resetComp)
-                resetComp->Data() = {pos} ; 
-            else
-                _ecm.CreateComponent(joint,gz::sim::components::JointPositionReset({pos})); 
-        } ; 
+        double rollVel  = 0.0 ; 
+        double pitchVel = 0.0 ; 
+        double heaveVel = 0.0 ;
+        
+        if(t>=2) {
+            double t_motion = t - 2.0 ; 
+            rollPos = this->rollAmplitude * std::sin(2.0*M_PI*this->rollFrequency*t_motion+this->rollPhase) ; 
+            pitchPos = this->pitchAmplitude * std::sin(2.0*M_PI*this->pitchFrequency*t_motion+this->pitchPhase) ; 
+            heavePos = this->heaveAmplitude * std::sin(2.0*M_PI*this->heaveFrequency*t_motion+this->heavePhase) ; 
 
-        setJointPos(this->rollJoint,rollPos) ; 
-        setJointPos(this->pitchJoint,pitchPos) ; 
-        setJointPos(this->heaveJoint,heavePos) ; 
+            rollVel  = this->rollAmplitude  * 2.0*M_PI*this->rollFrequency * std::cos(2.0*M_PI*this->rollFrequency*t_motion  + this->rollPhase);
+            pitchVel = this->pitchAmplitude * 2.0*M_PI*this->pitchFrequency * std::cos(2.0*M_PI*this->pitchFrequency*t_motion + this->pitchPhase);
+            heaveVel = this->heaveAmplitude * 2.0*M_PI*this->heaveFrequency * std::cos(2.0*M_PI*this->heaveFrequency*t_motion + this->heavePhase);
+        }
+        
+        // step 4 - Custom PD-Controller -- method to control a joint (force command given target position and velocity)
+        auto sendForceCmd = [&](gz::sim::Entity joint, double targetPos, double targetVel) {
+            if(joint == gz::sim::kNullEntity) 
+                return;
+
+            // 1. Read current position
+            double currentPos = 0.0;
+            auto* posComp = _ecm.Component<gz::sim::components::JointPosition>(joint); //read position
+            
+            if(posComp && !posComp->Data().empty()) //if exist: 
+                currentPos = posComp->Data()[0]; //upgrade current position
+            else 
+                _ecm.CreateComponent(joint, gz::sim::components::JointPosition()); //if it doesn't exist - create it (normally at first iteration)
+
+            // 2. Read current velocity
+            double currentVel = 0.0;
+            auto* velComp = _ecm.Component<gz::sim::components::JointVelocity>(joint); // read velocity
+            
+            if(velComp && !velComp->Data().empty()) 
+                currentVel = velComp->Data()[0];
+            else 
+                _ecm.CreateComponent(joint, gz::sim::components::JointVelocity()); 
+
+            // 3. PD controller
+            
+            double Kp = 10000.0; 
+            double Kd = 200.0;  
+            
+            double errorPos = targetPos - currentPos;
+            double errorVel = targetVel - currentVel;
+            
+            double forceCmd = (Kp * errorPos) + (Kd * errorVel);
+
+            // 4. Torque of "Gazebo engine"
+            auto* forceComp = _ecm.Component<gz::sim::components::JointForceCmd>(joint); //read the force
+            if(forceComp) 
+                forceComp->Data() = {forceCmd};
+            else _ecm.CreateComponent(joint, gz::sim::components::JointForceCmd({forceCmd}));
+        };
+
+        //apply force to the joints
+        sendForceCmd(this->rollJoint, rollPos, rollVel); 
+        sendForceCmd(this->pitchJoint, pitchPos, pitchVel);
+        sendForceCmd(this->heaveJoint, heavePos, heaveVel);
     }
 }//namespace ship_gazebo

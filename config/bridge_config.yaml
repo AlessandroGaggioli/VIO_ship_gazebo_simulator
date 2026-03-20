@@ -1,0 +1,11 @@
+# bridge_config.yaml 
+# bridge from Gazebo topic to ROS2 topic bridge configuration
+
+# IMU ship 
+- ros_topic_name: /ship/imu
+  gz_topic_name: /world/ship_world/model/ship_corridor_dynamic/link/CoG_link/sensor/ship_imu/imu
+  ros_type_name: sensor_msgs/msg/Imu
+  gz_type_name: gz.msgs.IMU
+  direction: GZ_TO_ROS
+  lazy: false
+

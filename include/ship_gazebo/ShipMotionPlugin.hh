@@ -6,6 +6,13 @@
 #include <gz/sim/EventManager.hh>
 #include <sdf/sdf.hh>
 #include <memory>     
+#include <gz/plugin/Register.hh> 
+#include <chrono>
+#include <cmath>
+
+#include <gz/sim/components/JointForceCmd.hh>
+#include <gz/sim/components/JointPosition.hh>
+#include <gz/sim/components/JointVelocity.hh>
 
 
 namespace ship_gazebo {
