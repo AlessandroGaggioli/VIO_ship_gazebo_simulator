@@ -93,15 +93,27 @@ namespace ship_gazebo {
         double pitchVel = 0.0 ; 
         double heaveVel = 0.0 ;
         
-        if(t>=2) {
+       if(t>=2) {
             double t_motion = t - 2.0 ; 
-            rollPos = this->rollAmplitude * std::sin(2.0*M_PI*this->rollFrequency*t_motion+this->rollPhase) ; 
-            pitchPos = this->pitchAmplitude * std::sin(2.0*M_PI*this->pitchFrequency*t_motion+this->pitchPhase) ; 
-            heavePos = this->heaveAmplitude * std::sin(2.0*M_PI*this->heaveFrequency*t_motion+this->heavePhase) ; 
+            
+            // --- INIZIO RAMPA ---
+            double rampDuration = 5.0; // Durata della rampa in secondi
+            double rampFactor = 1.0;   // Moltiplicatore di default (100% della forza)
+            
+            // Se siamo nei primi 5 secondi di movimento, il fattore sale da 0 a 1 linearmente
+            if (t_motion < rampDuration) {
+                rampFactor = t_motion / rampDuration;
+            }
+            // --- FINE RAMPA ---
 
-            rollVel  = this->rollAmplitude  * 2.0*M_PI*this->rollFrequency * std::cos(2.0*M_PI*this->rollFrequency*t_motion  + this->rollPhase);
-            pitchVel = this->pitchAmplitude * 2.0*M_PI*this->pitchFrequency * std::cos(2.0*M_PI*this->pitchFrequency*t_motion + this->pitchPhase);
-            heaveVel = this->heaveAmplitude * 2.0*M_PI*this->heaveFrequency * std::cos(2.0*M_PI*this->heaveFrequency*t_motion + this->heavePhase);
+            // Applichiamo il rampFactor alle ampiezze per un avvio morbido
+            rollPos = rampFactor * this->rollAmplitude * std::sin(2.0*M_PI*this->rollFrequency*t_motion+this->rollPhase) ; 
+            pitchPos = rampFactor * this->pitchAmplitude * std::sin(2.0*M_PI*this->pitchFrequency*t_motion+this->pitchPhase) ; 
+            heavePos = rampFactor * this->heaveAmplitude * std::sin(2.0*M_PI*this->heaveFrequency*t_motion+this->heavePhase) ; 
+
+            rollVel  = rampFactor * this->rollAmplitude  * 2.0*M_PI*this->rollFrequency * std::cos(2.0*M_PI*this->rollFrequency*t_motion  + this->rollPhase);
+            pitchVel = rampFactor * this->pitchAmplitude * 2.0*M_PI*this->pitchFrequency * std::cos(2.0*M_PI*this->pitchFrequency*t_motion + this->pitchPhase);
+            heaveVel = rampFactor * this->heaveAmplitude * 2.0*M_PI*this->heaveFrequency * std::cos(2.0*M_PI*this->heaveFrequency*t_motion + this->heavePhase);
         }
         
         // step 4 - Custom PD-Controller -- method to control a joint (force command given target position and velocity)
@@ -129,8 +141,8 @@ namespace ship_gazebo {
 
             // 3. PD controller
             
-            double Kp = 10000.0; 
-            double Kd = 200.0;  
+            double Kp = 20000000.0; 
+            double Kd = 1900000.0;  
             
             double errorPos = targetPos - currentPos;
             double errorVel = targetVel - currentVel;

@@ -2,8 +2,7 @@ import os
 import subprocess
 from ament_index_python.packages import get_package_share_directory, get_package_prefix
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess, AppendEnvironmentVariable
-
+from launch.actions import ExecuteProcess, AppendEnvironmentVariable, TimerAction
 def generate_launch_description():
     pkg_share = get_package_share_directory('ship_gazebo')
     pkg_prefix = get_package_prefix('ship_gazebo') 
@@ -22,11 +21,16 @@ def generate_launch_description():
     return LaunchDescription([
         AppendEnvironmentVariable(
             name='GZ_SIM_SYSTEM_PLUGIN_PATH',
-            value=plugin_path
+            value=plugin_path,
+        ),
+
+        AppendEnvironmentVariable(
+            name='GZ_SIM_RESOURCE_PATH',
+            value='/opt/ros/jazzy/share/turtlebot3_gazebo/models',
         ),
         
         ExecuteProcess(
-            cmd=['gz', 'sim', '-r', sdf_out],
+            cmd=['gz', 'sim', sdf_out],
             output='screen'
         ),
         
