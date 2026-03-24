@@ -9,3 +9,72 @@
   direction: GZ_TO_ROS
   lazy: false
 
+# IMU robot - turtlebot3
+- ros_topic_name: /robot/imu
+  gz_topic_name: /model/turtlebot3_waffle/imu
+  ros_type_name: sensor_msgs/msg/Imu
+  gz_type_name: gz.msgs.IMU
+  direction: GZ_TO_ROS
+  lazy: false 
+
+# ---------------------------------------------
+# STEREO CAMERAS (VIO)
+# ---------------------------------------------
+# Camera Left . image 
+- ros_topic_name: /camera/left/image_raw
+  gz_topic_name: /camera/left/image_raw
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+  lazy: false
+
+# Camera Left - camera info 
+- ros_topic_name: /camera/left/camera_info
+  gz_topic_name: /camera/left/camera_info
+  ros_type_name: sensor_msgs/msg/CameraInfo
+  gz_type_name: gz.msgs.CameraInfo
+  direction: GZ_TO_ROS
+  lazy: false
+
+# Camera Right - image 
+- ros_topic_name: /camera/right/image_raw
+  gz_topic_name: /camera/right/image_raw
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+  lazy: false
+
+# Camera Right - camera info 
+- ros_topic_name: /camera/right/camera_info
+  gz_topic_name: /camera/topic/camera_info
+  ros_type_name: sensor_msgs/msg/CameraInfo
+  gz_type_name: gz.msgs.CameraInfo
+  direction: GZ_TO_ROS
+  lazy: false
+
+# ---------------------------------------------
+# ODOMETRIA
+# ---------------------------------------------
+# Odometria
+- ros_topic_name: /odom
+  gz_topic_name: /odom
+  ros_type_name: nav_msgs/msg/Odometry
+  gz_type_name: gz.msgs.Odometry
+  direction: GZ_TO_ROS
+  lazy: false
+
+# Comando Velocità
+- ros_topic_name: /cmd_vel
+  gz_topic_name: /cmd_vel
+  ros_type_name: geometry_msgs/msg/Twist
+  gz_type_name: gz.msgs.Twist
+  direction: ROS_TO_GZ
+  lazy: false
+
+# Stato dei giunti
+- ros_topic_name: /joint_states
+  gz_topic_name: /joint_states
+  ros_type_name: sensor_msgs/msg/JointState
+  gz_type_name: gz.msgs.Model
+  direction: GZ_TO_ROS
+  lazy: false

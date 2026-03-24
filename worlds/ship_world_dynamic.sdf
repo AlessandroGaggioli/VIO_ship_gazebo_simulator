@@ -19,6 +19,12 @@
             <real_time_factor>1.0</real_time_factor>
         </physics>
 
+        <!-- 
+        Modello nave: 
+
+        world -> heave_joint (z) -> roll_joint(y) -> pitch_joint(x) -> CoG -> corridor
+        -->
+
         <model name="ship_corridor_dynamic">
             <static>false</static>
 
@@ -37,6 +43,7 @@
                 <child>world_base_link</child>
             </joint>
 
+            <!-- HEAVE - traslazione lungo Z-->
             <link name="heave_link">
                 <pose>0 0 0 0 0 0</pose>
                 <gravity>false</gravity>
@@ -63,6 +70,8 @@
                     </dynamics>
                 </axis>
             </joint>
+
+            <!-- ROLL - rotazione attorno a Y -->
 
             <link name="roll_link">
                 <pose>0 0 0 0 0 0</pose>
@@ -91,6 +100,7 @@
                 </axis>
             </joint>
 
+            <!-- PITCH - rotazione attorno a X -->
             <link name="pitch_link">
                 <pose>0 0 0 0 0 0</pose>
                 <gravity>false</gravity>
@@ -117,7 +127,8 @@
                     </dynamics>
                 </axis>
             </joint>
-
+            
+            <!-- CoG - massa e IMU nave -->
             <link name="CoG_link">
                 <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
                 <gravity>false</gravity>
@@ -142,6 +153,7 @@
                     </material>
                 </visual>
 
+                <!-- IMU nave: pubblicata su /ship/imu (bridge ROS2) -->
                 <sensor name="ship_imu" type="imu">
                     <pose>0 0 0 0 0 0</pose>
                     <always_on>true</always_on>
@@ -201,8 +213,8 @@
                         </contact>
                         <friction>
                             <ode>
-                                <mu>1.0</mu>
-                                <mu2>1.0</mu2>
+                                <mu>8.0</mu>
+                                <mu2>8.0</mu2>
                             </ode>
                         </friction>
                     </surface>
@@ -227,10 +239,73 @@
                 <heave_frequency>0.0</heave_frequency>
                 <heave_phase>0.0</heave_phase>
             </plugin>
+
+            <!--===============OBSTACLE 1=======================================-->
+            <link name="obstacle_1_link">
+                <pose>5.395498016666667 40.27834919666667 2.71898355 0 0 0</pose>
+                <gravity>false</gravity>
+
+                <collision name="collision">
+                    <geometry>
+                        <box><size>0.2 0.2 0.2</size></box>
+                    </geometry>
+                </collision>
+
+                <visual name="visual">
+                    <geometry>
+                        <box><size>0.2 0.2 0.2</size></box>
+                    </geometry>
+                    <material>
+                        <ambient>1 0 0 1</ambient>
+                        <diffuse>1 0 0 1</diffuse>
+                    </material>
+                </visual>
+            </link>
+
+            <joint name="obstacle_1_joint" type="fixed">
+                <parent>corridor_link</parent>
+                <child>obstacle_1_link</child>
+            </joint>
+            <!-- ===============================================================-->
+
+            <!--===============OBSTACLE 2=======================================-->
+            <link name="obstacle_2_link">
+                <pose>4.895498016666667 40.47834919666667 2.71898355 0 0 0</pose>
+                <gravity>false</gravity>
+
+                <collision name="collision">
+                    <geometry>
+                        <cylinder>
+                            <radius>0.2</radius>
+                            <length>0.2</length>
+                        </cylinder>
+                    </geometry>
+                </collision>
+
+                <visual name="visual">
+                    <geometry>
+                        <cylinder>
+                            <radius>0.2</radius>
+                            <length>0.2</length>
+                        </cylinder>
+                    </geometry>
+                    <material>
+                        <ambient>0 1 0 1</ambient>
+                        <diffuse>0 1 0 1</diffuse>
+                    </material>
+                </visual>
+            </link>
+
+            <joint name="obstacle_2_joint" type="fixed">
+                <parent>corridor_link</parent>
+                <child>obstacle_2_link</child>
+            </joint>
+            <!-- ===============================================================-->
+
         </model>
 
         <include>
-            <uri>file:///opt/ros/jazzy/share/turtlebot3_gazebo/models/turtlebot3_waffle</uri>
+            <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/turtlebot3_stereo</uri>
             <name>turtlebot3_waffle</name>
             <pose>5.078 39.578349196666665 2.61898355 0.0 0.0 1.570799997</pose>
         </include>

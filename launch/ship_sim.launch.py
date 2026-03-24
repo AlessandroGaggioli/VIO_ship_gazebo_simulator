@@ -3,6 +3,8 @@ import subprocess
 from ament_index_python.packages import get_package_share_directory, get_package_prefix
 from launch import LaunchDescription
 from launch.actions import ExecuteProcess, AppendEnvironmentVariable, TimerAction
+from launch_ros.actions import Node
+
 def generate_launch_description():
     pkg_share = get_package_share_directory('ship_gazebo')
     pkg_prefix = get_package_prefix('ship_gazebo') 
@@ -16,6 +18,28 @@ def generate_launch_description():
         ['python3', '-c', 'import em; em.main()', '--', sdf_em],
         stdout=open(sdf_out, 'w'),
         check=True
+    )
+
+    left_camera_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='camera_left_tf',
+        # I numeri sono: X Y Z (metri) Yaw Pitch Roll (radianti) -> frame_padre frame_figlio
+        arguments=['0.07', '0.06', '0.10', '0', '0', '0', 'base_link', 'camera_left_link']
+    )
+
+    right_camera_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='camera_right_tf',
+        arguments=['0.07', '-0.06', '0.10', '0', '0', '0', 'base_link', 'camera_right_link']
+    )
+
+    imu_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='imu_tf',
+        arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'imu_link']
     )
     
     return LaunchDescription([
@@ -42,4 +66,7 @@ def generate_launch_description():
             ],
             output='screen'
         ),
+        left_camera_tf,
+        right_camera_tf,
+        imu_tf,
     ])

@@ -34,8 +34,10 @@ corridor_inertia = [
     [0.0,   500.0, 0.0  ],
     [0.0,   0.0,   500.0]
 ]  # kg·m²
-mu  = 1.0
-mu2 = 1.0
+
+# attrito alto per impedire scivolamento del robot durante le oscillazione
+mu  = 8.0
+mu2 = 8.0
 
 # ----- robot parameters -----------------------------------
 robot_x     = corridor_pose[0]
@@ -45,6 +47,19 @@ robot_roll  = corridor_pose[3]
 robot_pitch = corridor_pose[4]
 robot_yaw   = corridor_pose[5] + 90 * 0.0174533333
 robot_pose  = (robot_x, robot_y, robot_z, robot_roll, robot_pitch, robot_yaw)
+
+# --------- obtacles --------------------------------
+ob_x = corridor_pose[0] - (corridor_size[0] * scale[1] / 2.0) + 0.75
+ob_y = corridor_pose[1] - (corridor_size[1] * scale[1] / 2.0) + 1.00
+ob_z = corridor_pose[2] - (corridor_size[2] * scale[2] / 2.0) + 0.45
+
+ob1_pose = (ob_x,ob_y,ob_z,0,0,0) 
+
+ob_x = corridor_pose[0] - (corridor_size[0] * scale[1] / 2.0) + 0.25
+ob_y = corridor_pose[1] - (corridor_size[1] * scale[1] / 2.0) + 1.20
+ob_z = corridor_pose[2] - (corridor_size[2] * scale[2] / 2.0) + 0.45
+
+ob2_pose = (ob_x,ob_y,ob_z,0,0,0)
 
 # ----- motion parameters ----------------------------------
 roll_amplitude  = 0.3   # rad
@@ -97,6 +112,12 @@ imu_bias_gyro   = 0.0
             <real_time_factor>1.0</real_time_factor>
         </physics>
 
+        <!-- 
+        Modello nave: 
+
+        world -> heave_joint (z) -> roll_joint(y) -> pitch_joint(x) -> CoG -> corridor
+        -->
+
         <model name="ship_corridor_dynamic">
             <static>false</static>
 
@@ -115,6 +136,7 @@ imu_bias_gyro   = 0.0
                 <child>world_base_link</child>
             </joint>
 
+            <!-- HEAVE - traslazione lungo Z-->
             <link name="heave_link">
                 <pose>0 0 0 0 0 0</pose>
                 <gravity>false</gravity>
@@ -141,6 +163,8 @@ imu_bias_gyro   = 0.0
                     </dynamics>
                 </axis>
             </joint>
+
+            <!-- ROLL - rotazione attorno a Y -->
 
             <link name="roll_link">
                 <pose>0 0 0 0 0 0</pose>
@@ -169,6 +193,7 @@ imu_bias_gyro   = 0.0
                 </axis>
             </joint>
 
+            <!-- PITCH - rotazione attorno a X -->
             <link name="pitch_link">
                 <pose>0 0 0 0 0 0</pose>
                 <gravity>false</gravity>
@@ -195,7 +220,8 @@ imu_bias_gyro   = 0.0
                     </dynamics>
                 </axis>
             </joint>
-
+            
+            <!-- CoG - massa e IMU nave -->
             <link name="CoG_link">
                 <pose>@(CoG_pose[0]) @(CoG_pose[1]) @(CoG_pose[2]) @(CoG_pose[3]) @(CoG_pose[4]) @(CoG_pose[5])</pose>
                 <gravity>false</gravity>
@@ -220,6 +246,7 @@ imu_bias_gyro   = 0.0
                     </material>
                 </visual>
 
+                <!-- IMU nave: pubblicata su /ship/imu (bridge ROS2) -->
                 <sensor name="ship_imu" type="imu">
                     <pose>0 0 0 0 0 0</pose>
                     <always_on>true</always_on>
@@ -305,10 +332,73 @@ imu_bias_gyro   = 0.0
                 <heave_frequency>@(heave_frequency)</heave_frequency>
                 <heave_phase>@(heave_phase)</heave_phase>
             </plugin>
+
+            <!--===============OBSTACLE 1=======================================-->
+            <link name="obstacle_1_link">
+                <pose>@(ob1_pose[0]) @(ob1_pose[1]) @(ob1_pose[2]) 0 0 0</pose>
+                <gravity>false</gravity>
+
+                <collision name="collision">
+                    <geometry>
+                        <box><size>0.2 0.2 0.2</size></box>
+                    </geometry>
+                </collision>
+
+                <visual name="visual">
+                    <geometry>
+                        <box><size>0.2 0.2 0.2</size></box>
+                    </geometry>
+                    <material>
+                        <ambient>1 0 0 1</ambient>
+                        <diffuse>1 0 0 1</diffuse>
+                    </material>
+                </visual>
+            </link>
+
+            <joint name="obstacle_1_joint" type="fixed">
+                <parent>corridor_link</parent>
+                <child>obstacle_1_link</child>
+            </joint>
+            <!-- ===============================================================-->
+
+            <!--===============OBSTACLE 2=======================================-->
+            <link name="obstacle_2_link">
+                <pose>@(ob2_pose[0]) @(ob2_pose[1]) @(ob2_pose[2]) 0 0 0</pose>
+                <gravity>false</gravity>
+
+                <collision name="collision">
+                    <geometry>
+                        <cylinder>
+                            <radius>0.2</radius>
+                            <length>0.2</length>
+                        </cylinder>
+                    </geometry>
+                </collision>
+
+                <visual name="visual">
+                    <geometry>
+                        <cylinder>
+                            <radius>0.2</radius>
+                            <length>0.2</length>
+                        </cylinder>
+                    </geometry>
+                    <material>
+                        <ambient>0 1 0 1</ambient>
+                        <diffuse>0 1 0 1</diffuse>
+                    </material>
+                </visual>
+            </link>
+
+            <joint name="obstacle_2_joint" type="fixed">
+                <parent>corridor_link</parent>
+                <child>obstacle_2_link</child>
+            </joint>
+            <!-- ===============================================================-->
+
         </model>
 
         <include>
-            <uri>file:///opt/ros/jazzy/share/turtlebot3_gazebo/models/turtlebot3_waffle</uri>
+            <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/turtlebot3_stereo</uri>
             <name>turtlebot3_waffle</name>
             <pose>@(robot_pose[0]) @(robot_pose[1]) @(robot_pose[2]) @(robot_pose[3]) @(robot_pose[4]) @(robot_pose[5])</pose>
         </include>

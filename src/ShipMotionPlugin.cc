@@ -149,7 +149,7 @@ namespace ship_gazebo {
             
             double forceCmd = (Kp * errorPos) + (Kd * errorVel);
 
-            // 4. Torque of "Gazebo engine"
+            // 4. Torque 
             auto* forceComp = _ecm.Component<gz::sim::components::JointForceCmd>(joint); //read the force
             if(forceComp) 
                 forceComp->Data() = {forceCmd};
