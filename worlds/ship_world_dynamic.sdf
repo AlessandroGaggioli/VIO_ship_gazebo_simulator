@@ -6,11 +6,19 @@
 
         <light type="directional" name="sun">
             <cast_shadows>true</cast_shadows>
-            <pose>0 0 10 0 0 0</pose>
+            <pose>0 0 50 0 0 0</pose>
             <diffuse>0.8 0.8 0.8 1</diffuse>
             <specular>0.2 0.2 0.2 1</specular>
-            <direction>-0.5 0.1 -0.9</direction>
+            <direction>-0.5 0.1 -1</direction>
         </light>
+
+        <scene>
+            <grid>false</grid>
+            <origin_visual>true</origin_visual>
+            <ambient>0.4 0.4 0.4 1</ambient> 
+        </scene>
+
+        <!--================================================================-->
 
         <gravity>0 0 -9.81</gravity>
 
@@ -43,7 +51,9 @@
                 <child>world_base_link</child>
             </joint>
 
+            <!--===============================-->
             <!-- HEAVE - traslazione lungo Z-->
+            <!--===============================-->
             <link name="heave_link">
                 <pose>0 0 0 0 0 0</pose>
                 <gravity>false</gravity>
@@ -71,7 +81,9 @@
                 </axis>
             </joint>
 
+            <!--===============================-->
             <!-- ROLL - rotazione attorno a Y -->
+            <!--===============================-->
 
             <link name="roll_link">
                 <pose>0 0 0 0 0 0</pose>
@@ -88,7 +100,7 @@
                 <parent>heave_link</parent>
                 <child>roll_link</child>
                 <axis>
-                    <xyz>0 1 0</xyz>
+                    <xyz>1 0 0</xyz>
                     <limit>
                         <lower>-0.5</lower>
                         <upper>0.5</upper>
@@ -100,7 +112,10 @@
                 </axis>
             </joint>
 
+            <!--===============================-->
             <!-- PITCH - rotazione attorno a X -->
+            <!--===============================-->
+
             <link name="pitch_link">
                 <pose>0 0 0 0 0 0</pose>
                 <gravity>false</gravity>
@@ -116,10 +131,10 @@
                 <parent>roll_link</parent>
                 <child>pitch_link</child>
                 <axis>
-                    <xyz>1 0 0</xyz>
+                    <xyz>0 1 0</xyz>
                     <limit>
-                        <lower>-0.0</lower>
-                        <upper>0.0</upper>
+                        <lower>-0.2</lower>
+                        <upper>0.2</upper>
                         <effort>10000000000</effort> </limit>
                     <dynamics>
                         <damping>100.0</damping>
@@ -128,7 +143,10 @@
                 </axis>
             </joint>
             
+            <!--===============================-->
             <!-- CoG - massa e IMU nave -->
+            <!--===============================-->
+
             <link name="CoG_link">
                 <pose>0.0 0.0 0.0 0.0 0.0 0.0</pose>
                 <gravity>false</gravity>
@@ -143,13 +161,20 @@
 
                 <visual name="ship_hull">
                     <geometry>
+                        <!--
                         <box>
-                            <size>20.0 150.0 10.0</size>
+                            <size>141.0 20.16 26.7</size>
                         </box>
+                        -->
+                        <mesh>
+                            <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/vessel_mode.stl</uri>
+                        </mesh>
                     </geometry>
                     <material>
-                        <ambient>0.5 0.5 0.8 0.3</ambient>
-                        <diffuse>0.5 0.5 0.8 0.3</diffuse>
+                        <ambient>0.67 0.85 0.9 0.4</ambient>
+                        <diffuse>0.67 0.85 0.9 0.4</diffuse>
+                        <specular>0.67 0.85 0.9 0.4</specular>
+                        <emissive>0.0 0.0 0.0 0.2</emissive>
                     </material>
                 </visual>
 
@@ -161,14 +186,14 @@
                     <visualize>false</visualize>
                     <imu>
                         <angular_velocity>
-                            <x><noise type="gaussian"><mean>0.0</mean><stddev>0.0001</stddev><bias_mean>0.0</bias_mean></noise></x>
-                            <y><noise type="gaussian"><mean>0.0</mean><stddev>0.0001</stddev><bias_mean>0.0</bias_mean></noise></y>
-                            <z><noise type="gaussian"><mean>0.0</mean><stddev>0.0001</stddev><bias_mean>0.0</bias_mean></noise></z>
+                            <x><noise type="gaussian"><mean>0.0</mean><stddev>0</stddev><bias_mean>0.0</bias_mean></noise></x>
+                            <y><noise type="gaussian"><mean>0.0</mean><stddev>0</stddev><bias_mean>0.0</bias_mean></noise></y>
+                            <z><noise type="gaussian"><mean>0.0</mean><stddev>0</stddev><bias_mean>0.0</bias_mean></noise></z>
                         </angular_velocity>
                         <linear_acceleration>
-                            <x><noise type="gaussian"><mean>0.0</mean><stddev>0.00186</stddev><bias_mean>0.0</bias_mean></noise></x>
-                            <y><noise type="gaussian"><mean>0.0</mean><stddev>0.00186</stddev><bias_mean>0.0</bias_mean></noise></y>
-                            <z><noise type="gaussian"><mean>0.0</mean><stddev>0.00186</stddev><bias_mean>0.0</bias_mean></noise></z>
+                            <x><noise type="gaussian"><mean>0.0</mean><stddev>0</stddev><bias_mean>0.0</bias_mean></noise></x>
+                            <y><noise type="gaussian"><mean>0.0</mean><stddev>0</stddev><bias_mean>0.0</bias_mean></noise></y>
+                            <z><noise type="gaussian"><mean>0.0</mean><stddev>0</stddev><bias_mean>0.0</bias_mean></noise></z>
                         </linear_acceleration>
                     </imu>
                 </sensor>
@@ -179,8 +204,12 @@
                 <child>CoG_link</child>
             </joint>
 
+            <!--===============================-->
+            <!-- corridor -->
+            <!--===============================-->
+
             <link name="corridor_link">
-                <pose>5.078 40.69 2.945 0.0 0.0 0.0</pose>
+                <pose>40.0 5.0 2.5 0.0 0.0 0.0</pose>
                 <gravity>false</gravity>
                 <inertial>
                     <mass>500.0</mass>
@@ -195,7 +224,7 @@
                     <geometry>
                         <mesh>
                             <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_corridor.dae</uri>
-                            <scale>0.31525 0.13719333333333333 0.3677</scale>
+                            <scale>0.14595035460992908 0.31274801587301587 0.41314606741573034</scale>
                         </mesh>
                     </geometry>
                 </visual>
@@ -204,7 +233,7 @@
                     <geometry>
                         <mesh>
                             <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_corridor.stl</uri>
-                            <scale>0.31525 0.13719333333333333 0.3677</scale>
+                            <scale>0.14595035460992908 0.31274801587301587 0.41314606741573034</scale>
                         </mesh>
                     </geometry>
                     <surface>
@@ -226,13 +255,81 @@
                 <child>corridor_link</child>
             </joint>
 
+            <!--===============================-->
+            <!--======== camera interna al corridoio  ============-->
+            <!--===============================-->
+
+            <link name="int_corridor_camera_link">
+                <pose relative_to='corridor_link'>0 0 0 0 0 0</pose>
+                <gravity>false</gravity>
+
+                <sensor name="corridor_camera" type="camera">
+                    <pose>-3 0 0 0 0 0</pose>
+                    <always_on>true</always_on>
+                    <update_rate>30</update_rate>
+                    <camera>
+                        <horizontal_fov>1.047</horizontal_fov>
+                        <image>
+                            <width>1280</width>
+                            <height>720</height>
+                            <format>R8G8B8</format>
+                        </image>
+                        <clip>
+                            <near>0.1</near>
+                            <far>100</far>
+                        </clip>
+                    </camera>
+                </sensor>
+            </link>
+
+            <joint name="int_corridor_camera_joint" type="fixed">
+                <parent>corridor_link</parent>
+                <child>int_corridor_camera_link</child>
+            </joint>
+
+            <!--===============================-->
+            <!--camera esterna al corridoio -->
+            <!--===============================-->
+
+            <link name="ext_corridor_camera_link">
+                <pose relative_to='corridor_link'>-15 0 0 0 0 0</pose>
+                <gravity>false</gravity>
+
+                <sensor name="corridor_camera" type="camera">
+                    <pose>0 0 0 0 0 0</pose>
+                    <always_on>true</always_on>
+                    <update_rate>30</update_rate>
+                    <camera>
+                        <horizontal_fov>1.047</horizontal_fov>
+                        <image>
+                            <width>1280</width>
+                            <height>720</height>
+                            <format>R8G8B8</format>
+                        </image>
+                        <clip>
+                            <near>0.1</near>
+                            <far>100</far>
+                        </clip>
+                    </camera>
+                </sensor>
+            </link>
+
+            <joint name="ext_corridor_camera_joint" type="fixed">
+                <parent>world_base_link</parent>
+                <child>ext_corridor_camera_link</child>
+            </joint>
+
+            <!--===============================-->
+            <!-- ==== Plugin ======-->
+            <!--===============================-->
+
             <plugin filename="libShipMotionPlugin.so" name="ship_gazebo::ShipMotionPlugin">
                 <roll_amplitude>0.3</roll_amplitude>
                 <roll_frequency>0.1</roll_frequency>
                 <roll_phase>0.0</roll_phase>
 
-                <pitch_amplitude>0.0</pitch_amplitude>
-                <pitch_frequency>0.0</pitch_frequency>
+                <pitch_amplitude>0.1</pitch_amplitude>
+                <pitch_frequency>0.1</pitch_frequency>
                 <pitch_phase>0.0</pitch_phase>
 
                 <heave_amplitude>0.0</heave_amplitude>
@@ -240,9 +337,12 @@
                 <heave_phase>0.0</heave_phase>
             </plugin>
 
-            <!--===============OBSTACLE 1=======================================-->
+            <!--===============================-->
+            <!--===========OBSTACLE 1==========-->
+            <!--===============================-->
+
             <link name="obstacle_1_link">
-                <pose>5.395498016666667 40.27834919666667 2.71898355 0 0 0</pose>
+                <pose>39.248243826241136 4.7 2.18043095505618 0 0 0</pose>
                 <gravity>false</gravity>
 
                 <collision name="collision">
@@ -266,11 +366,13 @@
                 <parent>corridor_link</parent>
                 <child>obstacle_1_link</child>
             </joint>
-            <!-- ===============================================================-->
-
-            <!--===============OBSTACLE 2=======================================-->
+            <!--===============================-->
+            
+            <!--===============================-->
+            <!--===============OBSTACLE 2======-->
+            <!--===============================-->
             <link name="obstacle_2_link">
-                <pose>4.895498016666667 40.47834919666667 2.71898355 0 0 0</pose>
+                <pose>39.69824382624114 5.35 2.18043095505618 0 0 0</pose>
                 <gravity>false</gravity>
 
                 <collision name="collision">
@@ -300,15 +402,25 @@
                 <parent>corridor_link</parent>
                 <child>obstacle_2_link</child>
             </joint>
-            <!-- ===============================================================-->
+            <!--===============================-->
 
         </model>
+        <!--===============================-->
+        <!--===============================-->
+
+        <!--===============================-->
+        <!-- TURTLEBOT -->
+        <!--===============================-->
 
         <include>
             <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/turtlebot3_stereo</uri>
             <name>turtlebot3_waffle</name>
-            <pose>5.078 39.578349196666665 2.61898355 0.0 0.0 1.570799997</pose>
+            <pose>38.675243826241136 5.0 2.0804309550561797 0.0 0.0 0.0</pose>
         </include>
+
+        <!--===============================-->
+        <!-- Plugin-->
+        <!--===============================-->
 
         <plugin filename="gz-sim-physics-system" name="gz::sim::systems::Physics"/>
         <plugin filename="gz-sim-user-commands-system" name="gz::sim::systems::UserCommands"/>

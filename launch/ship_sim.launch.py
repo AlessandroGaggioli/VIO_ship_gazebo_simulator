@@ -6,6 +6,17 @@ from launch.actions import ExecuteProcess, AppendEnvironmentVariable, TimerActio
 from launch_ros.actions import Node
 
 def generate_launch_description():
+
+    for folder in [os.path.expanduser('~/.gz/sim'), os.path.expanduser('~/.ignition/sim')]:
+        if os.path.exists(folder):
+            for root, dirs, files in os.walk(folder):
+                if 'gui.config' in files:
+                    try:
+                        os.remove(os.path.join(root, 'gui.config'))
+                        print(f"PULIZIA: rimosso {root}/gui.config")
+                    except Exception as e:
+                        print(f"ERRORE PULIZIA: {e}")
+
     pkg_share = get_package_share_directory('ship_gazebo')
     pkg_prefix = get_package_prefix('ship_gazebo') 
     plugin_path = os.path.join(pkg_prefix, 'lib', 'ship_gazebo')
@@ -54,7 +65,7 @@ def generate_launch_description():
         ),
         
         ExecuteProcess(
-            cmd=['gz', 'sim', sdf_out],
+            cmd=['gz', 'sim','-r', sdf_out],
             output='screen'
         ),
         
@@ -65,6 +76,16 @@ def generate_launch_description():
                 f'config_file:={bridge_config}'
             ],
             output='screen'
+        ),
+        ExecuteProcess(
+            cmd=[
+                'ros2','run','rqt_image_view','rqt_image_view'],
+                output='screen' 
+        ),
+        ExecuteProcess(
+            cmd=[
+                'ros2','run','rqt_image_view','rqt_image_view'],
+                output='screen' 
         ),
         left_camera_tf,
         right_camera_tf,
