@@ -55,12 +55,12 @@
             <!-- HEAVE - traslazione lungo Z-->
             <!--===============================-->
             <link name="heave_link">
-                <pose>0 0 0 0 0 0</pose>
+                <pose>0 0 0 0 0 0</pose>  
                 <gravity>false</gravity>
                 <inertial>
-                    <mass>10.0</mass>
+                    <mass>0.001</mass>
                     <inertia>
-                        <ixx>1.0</ixx> <iyy>1.0</iyy> <izz>1.0</izz>
+                        <ixx>0.0001</ixx> <iyy>0.0001</iyy> <izz>0.0001</izz>
                     </inertia>
                 </inertial>
             </link>
@@ -89,9 +89,9 @@
                 <pose>0 0 0 0 0 0</pose>
                 <gravity>false</gravity>
                 <inertial>
-                    <mass>10.0</mass>
+                    <mass>0.001</mass>
                     <inertia>
-                        <ixx>1.0</ixx> <iyy>1.0</iyy> <izz>1.0</izz>
+                        <ixx>0.0001</ixx> <iyy>0.0001</iyy> <izz>0.0001</izz>
                     </inertia>
                 </inertial>
             </link>
@@ -120,9 +120,9 @@
                 <pose>0 0 0 0 0 0</pose>
                 <gravity>false</gravity>
                 <inertial>
-                    <mass>10.0</mass>
+                    <mass>0.001</mass>
                     <inertia>
-                        <ixx>1.0</ixx> <iyy>1.0</iyy> <izz>1.0</izz>
+                        <ixx>0.0001</ixx> <iyy>0.0001</iyy> <izz>0.0001</izz>
                     </inertia>
                 </inertial>
             </link>
@@ -180,20 +180,20 @@
 
                 <!-- IMU nave: pubblicata su /ship/imu (bridge ROS2) -->
                 <sensor name="ship_imu" type="imu">
-                    <pose>0 0 0 0 0 0</pose>
+                    <pose relative_to='CoG_link'>0 0 0 0 0 0</pose>   
                     <always_on>true</always_on>
                     <update_rate>100.0</update_rate>
                     <visualize>false</visualize>
                     <imu>
                         <angular_velocity>
-                            <x><noise type="gaussian"><mean>0.0</mean><stddev>0</stddev><bias_mean>0.0</bias_mean></noise></x>
-                            <y><noise type="gaussian"><mean>0.0</mean><stddev>0</stddev><bias_mean>0.0</bias_mean></noise></y>
-                            <z><noise type="gaussian"><mean>0.0</mean><stddev>0</stddev><bias_mean>0.0</bias_mean></noise></z>
+                            <x><noise type="gaussian"><mean>0.0</mean><stddev>0.0001</stddev><bias_mean>0.0</bias_mean></noise></x>
+                            <y><noise type="gaussian"><mean>0.0</mean><stddev>0.0001</stddev><bias_mean>0.0</bias_mean></noise></y>
+                            <z><noise type="gaussian"><mean>0.0</mean><stddev>0.0001</stddev><bias_mean>0.0</bias_mean></noise></z>
                         </angular_velocity>
                         <linear_acceleration>
-                            <x><noise type="gaussian"><mean>0.0</mean><stddev>0</stddev><bias_mean>0.0</bias_mean></noise></x>
-                            <y><noise type="gaussian"><mean>0.0</mean><stddev>0</stddev><bias_mean>0.0</bias_mean></noise></y>
-                            <z><noise type="gaussian"><mean>0.0</mean><stddev>0</stddev><bias_mean>0.0</bias_mean></noise></z>
+                            <x><noise type="gaussian"><mean>0.0</mean><stddev>0.00186</stddev><bias_mean>0.0</bias_mean></noise></x>
+                            <y><noise type="gaussian"><mean>0.0</mean><stddev>0.00186</stddev><bias_mean>0.0</bias_mean></noise></y>
+                            <z><noise type="gaussian"><mean>0.0</mean><stddev>0.00186</stddev><bias_mean>0.0</bias_mean></noise></z>
                         </linear_acceleration>
                     </imu>
                 </sensor>
@@ -208,8 +208,8 @@
             <!-- corridor -->
             <!--===============================-->
 
-            <link name="corridor_link">
-                <pose>40.0 5.0 2.5 0.0 0.0 0.0</pose>
+            <link name="corridor_link"> 
+                <pose relative_to='CoG_link'>40.0 5.0 2.5 0.0 0.0 0.0</pose>
                 <gravity>false</gravity>
                 <inertial>
                     <mass>500.0</mass>
@@ -328,8 +328,8 @@
                 <roll_frequency>0.1</roll_frequency>
                 <roll_phase>0.0</roll_phase>
 
-                <pitch_amplitude>0.1</pitch_amplitude>
-                <pitch_frequency>0.1</pitch_frequency>
+                <pitch_amplitude>0.0</pitch_amplitude>
+                <pitch_frequency>0.0</pitch_frequency>
                 <pitch_phase>0.0</pitch_phase>
 
                 <heave_amplitude>0.0</heave_amplitude>
@@ -342,7 +342,7 @@
             <!--===============================-->
 
             <link name="obstacle_1_link">
-                <pose>39.248243826241136 4.7 2.18043095505618 0 0 0</pose>
+                <pose relative_to='corridor_link'>-0.75 -0.3 -0.28 0 0 0</pose>
                 <gravity>false</gravity>
 
                 <collision name="collision">
@@ -372,7 +372,7 @@
             <!--===============OBSTACLE 2======-->
             <!--===============================-->
             <link name="obstacle_2_link">
-                <pose>39.69824382624114 5.35 2.18043095505618 0 0 0</pose>
+                <pose relative_to='corridor_link'>-1.2 0.35 -0.28 0 0 0</pose>
                 <gravity>false</gravity>
 
                 <collision name="collision">
@@ -415,7 +415,7 @@
         <include>
             <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/turtlebot3_stereo</uri>
             <name>turtlebot3_waffle</name>
-            <pose>38.675243826241136 5.0 2.0804309550561797 0.0 0.0 0.0</pose>
+            <pose>38.675243826241136 5.0 2.1204309550561797 0.0 0.0 0.0</pose>
         </include>
 
         <!--===============================-->

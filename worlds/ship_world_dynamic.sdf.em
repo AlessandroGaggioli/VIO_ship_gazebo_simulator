@@ -24,10 +24,10 @@ ship_inertia = [
 
 # Masse sufficientemente grandi da evitare instabilità numerica in DART,
 # ma trascurabili rispetto alla massa principale di 6000 kg.
-intermediate_mass = 10.0 # kg
-intermediate_ixx  = 1.0  # kg·m²
-intermediate_iyy  = 1.0
-intermediate_izz  = 1.0
+intermediate_mass = 0.001 # kg
+intermediate_ixx  = 0.0001  # kg·m²
+intermediate_iyy  = 0.0001
+intermediate_izz  = 0.0001
 
 #==========================================================
 # ----- corridor parameters -------------------------------
@@ -40,7 +40,7 @@ corridor_pose = (40.0, 5.0, 2.50, 0.0, 0.0, 0.0)
 center_stl = (1.417,10.289,1.361,0.0,0.0,0.0)
 bias = tuple(d-c for d,c in zip(corridor_pose,center_stl)) # bias = (38.583, -5.289, 1.139)
 corridor_pose = tuple(a + b for a, b in zip(center_stl, bias)) 
-floor_distance = 0.34
+floor_distance = 0.38
 
 corridor_mass = 500.0  # kg
 corridor_inertia = [
@@ -72,24 +72,16 @@ robot_pose  = (robot_x, robot_y, robot_z, robot_roll, robot_pitch, robot_yaw)
 #==========================================================
 
 ob1_size = (0.2,0.2,0.2) #cube 
-ob_x = corridor_pose[0] - (corridor_size[0] * scale[0] / 2.0) + 0.75
-ob_y = corridor_pose[1] - 0.30
-ob_z = corridor_pose[2] - (corridor_size[2] * scale[2] / 2.0) + (ob1_size[2] / 2.0) + floor_distance
+ob_x = - 0.75
+ob_y = - 0.30
+ob_z = (ob1_size[2] / 2.0) - floor_distance
 
 ob1_pose = (ob_x,ob_y,ob_z,0,0,0) 
 
-heave_amplitude = 0.0
-heave_frequency = 0.0
-heave_phase     = 0.0
-
-roll_bound  = 0.5   # rad
-pitch_bound = 0.0   # rad
-heave_bound = 0.0   # m
-
 ob2_size = (0.2,0.2) #cylinder
-ob_x = corridor_pose[0] - (corridor_size[0] * scale[0] / 2.0) + 1.20
-ob_y = corridor_pose[1] + 0.35
-ob_z = corridor_pose[2] - (corridor_size[2] * scale[2] / 2.0) + (ob2_size[1] / 2.0) + floor_distance
+ob_x = - 1.20
+ob_y = 0.35
+ob_z = (ob2_size[1] / 2.0) - floor_distance
 
 ob2_pose = (ob_x,ob_y,ob_z,0,0,0)
 
@@ -186,7 +178,7 @@ imu_bias_gyro   = 0.0
             <!-- HEAVE - traslazione lungo Z-->
             <!--===============================-->
             <link name="heave_link">
-                <pose>0 0 0 0 0 0</pose>
+                <pose>0 0 0 0 0 0</pose>  
                 <gravity>false</gravity>
                 <inertial>
                     <mass>@(intermediate_mass)</mass>
@@ -311,7 +303,7 @@ imu_bias_gyro   = 0.0
 
                 <!-- IMU nave: pubblicata su /ship/imu (bridge ROS2) -->
                 <sensor name="ship_imu" type="imu">
-                    <pose>0 0 0 0 0 0</pose>
+                    <pose relative_to='CoG_link'>0 0 0 0 0 0</pose>   
                     <always_on>true</always_on>
                     <update_rate>@(imu_ship_rate)</update_rate>
                     <visualize>false</visualize>
@@ -339,8 +331,8 @@ imu_bias_gyro   = 0.0
             <!-- corridor -->
             <!--===============================-->
 
-            <link name="corridor_link">
-                <pose>@(corridor_pose[0]) @(corridor_pose[1]) @(corridor_pose[2]) @(corridor_pose[3]) @(corridor_pose[4]) @(corridor_pose[5])</pose>
+            <link name="corridor_link"> 
+                <pose relative_to='CoG_link'>@(corridor_pose[0]) @(corridor_pose[1]) @(corridor_pose[2]) @(corridor_pose[3]) @(corridor_pose[4]) @(corridor_pose[5])</pose>
                 <gravity>false</gravity>
                 <inertial>
                     <mass>@(corridor_mass)</mass>
@@ -473,7 +465,7 @@ imu_bias_gyro   = 0.0
             <!--===============================-->
 
             <link name="obstacle_1_link">
-                <pose>@(ob1_pose[0]) @(ob1_pose[1]) @(ob1_pose[2]) 0 0 0</pose>
+                <pose relative_to='corridor_link'>@(ob1_pose[0]) @(ob1_pose[1]) @(ob1_pose[2]) 0 0 0</pose>
                 <gravity>false</gravity>
 
                 <collision name="collision">
@@ -503,7 +495,7 @@ imu_bias_gyro   = 0.0
             <!--===============OBSTACLE 2======-->
             <!--===============================-->
             <link name="obstacle_2_link">
-                <pose>@(ob2_pose[0]) @(ob2_pose[1]) @(ob2_pose[2]) 0 0 0</pose>
+                <pose relative_to='corridor_link'>@(ob2_pose[0]) @(ob2_pose[1]) @(ob2_pose[2]) 0 0 0</pose>
                 <gravity>false</gravity>
 
                 <collision name="collision">
