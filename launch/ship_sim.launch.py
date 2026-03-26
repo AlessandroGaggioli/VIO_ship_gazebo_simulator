@@ -2,8 +2,9 @@ import os
 import subprocess
 from ament_index_python.packages import get_package_share_directory, get_package_prefix
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess, AppendEnvironmentVariable, TimerAction
+from launch.actions import ExecuteProcess, AppendEnvironmentVariable, TimerAction, LogInfo
 from launch_ros.actions import Node
+import xml.etree.ElementTree as ET
 
 def generate_launch_description():
 
@@ -31,6 +32,24 @@ def generate_launch_description():
         check=True
     )
 
+    def get_robot_spawn_from_sdf(sdf_path):
+        try:
+            tree = ET.parse(sdf_path)
+            root = tree.getroot()
+
+            for include_tag in root.findall(".//include"):
+                name_tag = include_tag.find("name")
+                if name_tag is not None and "turtlebot3_waffle" in name_tag.text:
+                    pose_text = include_tag.find("pose").text
+                    coords = [float(x) for x in pose_text.split()]
+                    return coords[0], coords[1], coords[2]
+        except Exception as e: 
+            print(f"ERRORE LETTURA SDF: {e}")
+        return 0.0,0.0,0.0
+    
+    sx,sy,sz = get_robot_spawn_from_sdf(sdf_out)
+    print(f"DEBUG: Robot spawn rilevato dall'SDF -> X:{sx}, Y:{sy}, Z:{sz}")
+
     left_camera_tf = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
@@ -52,8 +71,95 @@ def generate_launch_description():
         name='imu_tf',
         arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'imu_link']
     )
+
+    left_camera_rect = Node(
+        package='image_proc',
+        executable='rectify_node',
+        name='rectify_left',
+        remappings=[
+            ('image','/camera/left/image_raw'), #topic pubblicato da Gazebo
+            ('camera_info','/camera/left/camera_info'),
+            ('image_rect','/camera/left/image_rect') #topic image rectified 
+        ],
+        parameters=[{
+            'approximate_sync':True,
+            'queue_size':50,
+            'use_sim_time':True
+        }],
+        output='screen'
+    )
+
+    right_camera_rect = Node(
+        package='image_proc',
+        executable='rectify_node',
+        name='rectify_right',
+        remappings=[
+            ('image','/camera/right/image_raw'),
+            ('camera_info','/camera/right/camera_info'),
+            ('image_rect','/camera/right/image_rect')
+        ],
+        parameters=[{
+            'approximate_sync':True,
+            'queue_size': 50,
+            'use_sim_time': True
+        }],
+        output='screen'
+    )
+
+    disparity_map = Node (
+        package='stereo_image_proc',
+        executable='disparity_node',
+        name='disparity_map',
+        remappings=[
+            ('left/image_rect','/camera/left/image_rect'),
+            ('right/image_rect','/camera/right/image_rect'),
+            ('left/camera_info','/camera/left/camera_info'),
+            ('right/camera_info','/camera/right/camera_info'),
+            ('disparity','/camera/disparity')
+        ],
+        parameters=[{
+            'approximate_sync':True,
+            'queue_size':20,
+            'stereo_algorithm': 1, # 0 = BM, 1 = SGBM (più preciso)
+            'correlation_window_size': 15, 
+            'min_disparity': 0,
+            'num_disparities': 64 # multiplo di 16
+        }],
+        on_exit=LogInfo(msg='Disparity node closed.'),
+        respawn=False,
+        output='screen'
+    )
+
+    stereo_view = Node(
+        package='image_view',
+        executable='stereo_view',
+        name='stereo_view_node',
+        remappings=[
+            ('stereo/left/image', '/camera/left/image_rect'),
+            ('stereo/right/image', '/camera/right/image_rect'),
+            ('stereo/disparity', '/camera/disparity'),
+        ],
+        parameters=[{
+            'approximate_sync': True,
+            'queue_size': 10
+        }],
+        output='screen'
+    )
+
+    compensate_imu = Node(
+        package='ship_gazebo',
+        executable='imu_compensator.py',
+        name='imu_compensator',
+        parameters=[{
+            'enable':True,
+            'spawn_x':sx,
+            'spawn_y':sy,
+            'spawn_z':sz
+        }]
+    )
     
     return LaunchDescription([
+
         AppendEnvironmentVariable(
             name='GZ_SIM_SYSTEM_PLUGIN_PATH',
             value=plugin_path,
@@ -68,7 +174,7 @@ def generate_launch_description():
             cmd=['gz', 'sim','-r', sdf_out],
             output='screen'
         ),
-        
+
         ExecuteProcess(
             cmd=[
                 'ros2', 'run', 'ros_gz_bridge', 'parameter_bridge',
@@ -77,11 +183,13 @@ def generate_launch_description():
             ],
             output='screen'
         ),
+
         ExecuteProcess(
             cmd=[
                 'ros2','run','rqt_image_view','rqt_image_view'],
-                output='screen' 
+            output='screen' 
         ),
+
         ExecuteProcess(
             cmd=[
                 'ros2','run','rqt_image_view','rqt_image_view'],
@@ -90,4 +198,9 @@ def generate_launch_description():
         left_camera_tf,
         right_camera_tf,
         imu_tf,
+        left_camera_rect,
+        right_camera_rect,
+        disparity_map,
+        stereo_view,
+        compensate_imu
     ])

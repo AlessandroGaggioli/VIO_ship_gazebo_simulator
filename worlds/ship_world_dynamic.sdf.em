@@ -24,10 +24,10 @@ ship_inertia = [
 
 # Masse sufficientemente grandi da evitare instabilità numerica in DART,
 # ma trascurabili rispetto alla massa principale di 6000 kg.
-intermediate_mass = 0.001 # kg
-intermediate_ixx  = 0.0001  # kg·m²
-intermediate_iyy  = 0.0001
-intermediate_izz  = 0.0001
+intermediate_mass = 1.0 # kg
+intermediate_ixx  = 0.1  # kg·m²
+intermediate_iyy  = 0.1
+intermediate_izz  = 0.1
 
 #==========================================================
 # ----- corridor parameters -------------------------------
