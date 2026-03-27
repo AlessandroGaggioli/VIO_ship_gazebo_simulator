@@ -64,6 +64,9 @@ namespace ship_gazebo {
         loadParam("heave_frequency", this->heaveFrequency);
         loadParam("heave_phase",     this->heavePhase);
 
+        //load max_step_size 
+        loadParam("max_step_size",this->dt) ; 
+
         //lettura joints 
         this->rollJoint = loadJoint("roll_joint") ; 
         this->pitchJoint = loadJoint("pitch_joint") ; 
@@ -93,7 +96,7 @@ namespace ship_gazebo {
         double pitchVel = 0.0 ; 
         double heaveVel = 0.0 ;
         
-       if(t>=2) {
+       if(t>=3) {
             double t_motion = t - 2.0 ; 
             
             // --- INIZIO RAMPA ---
@@ -139,15 +142,30 @@ namespace ship_gazebo {
             else 
                 _ecm.CreateComponent(joint, gz::sim::components::JointVelocity()); 
 
-            // 3. PD controller
-            
-            double Kp = 20000000.0; 
-            double Kd = 1900000.0;  
+            // 3. PID controller
             
             double errorPos = targetPos - currentPos;
             double errorVel = targetVel - currentVel;
+
+            double currentIntegral = 0.0 ; 
+
+            if (joint == this->rollJoint) {
+                this->rollIntegralError += errorPos * this->dt;
+                // Anti-windup (using clamp)
+                this->rollIntegralError = std::clamp(this->rollIntegralError, -1.0, 1.0);
+                currentIntegral = this->rollIntegralError;
+            } else if(joint == this->pitchJoint) {
+                this->pitchIntegralError += errorPos * this->dt;
+                this->pitchIntegralError = std::clamp(this->pitchIntegralError, -1.0, 1.0);
+                currentIntegral = this->pitchIntegralError;
+            }
+            else if (joint == this->heaveJoint) {
+                this->heaveIntegralError += errorPos * this->dt ; 
+                this->heaveIntegralError = std::clamp(this->heaveIntegralError,-0.5,0.5) ; 
+                currentIntegral = this->heaveIntegralError ; 
+            }
             
-            double forceCmd = (Kp * errorPos) + (Kd * errorVel);
+            double forceCmd = (this->Kp * errorPos) + (this->Kd * errorVel) +(this->Ki * currentIntegral)   ;
 
             // 4. Torque 
             auto* forceComp = _ecm.Component<gz::sim::components::JointForceCmd>(joint); //read the force

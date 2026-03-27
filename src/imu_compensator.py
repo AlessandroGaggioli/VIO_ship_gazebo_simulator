@@ -27,7 +27,6 @@ class RobotState:
         self.omega = np.zeros(3)
         self.a_linear = np.zeros(3)
 
-
 #===============================================
 # ROS Node 
 #===============================================

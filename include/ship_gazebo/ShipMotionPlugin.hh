@@ -66,6 +66,16 @@ namespace ship_gazebo {
         double heaveAmplitude{0.0} ;//rad
         double heaveFrequency{0.0} ;//Hz
         double heavePhase{0.0} ;//rad
+
+        //PID 
+        double rollIntegralError{0.0} ; 
+        double pitchIntegralError{0.0} ; 
+        double heaveIntegralError{0.0} ; 
+        double Ki{10000} ;
+        double Kp{1666666.6} ; 
+        double Kd{158333.3} ; 
+        double dt{0.0005} ; 
+        
         
     }; //class ShipMotionPlugin
 

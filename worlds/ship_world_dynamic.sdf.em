@@ -11,11 +11,11 @@ ship_size = (141.0, 20.16, 26.7)  # width, length, height [m]
 #ship_size = (150.0, 20.0, 10.0)  # width, length, height [m]
 CoG_pose = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
-ship_mass = 6000.0               # kg
+ship_mass = 1000.0               # kg
 ship_inertia = [
-    [6000.0, 0.0,     0.0    ],
-    [0.0,     6000.0, 0.0    ],
-    [0.0,     0.0,     6000.0]
+    [1000.0, 0.0,     0.0    ],
+    [0.0,     1000.0, 0.0    ],
+    [0.0,     0.0,     1000.0]
 ]  # kg·m²
 
 #==========================================================
@@ -24,10 +24,10 @@ ship_inertia = [
 
 # Masse sufficientemente grandi da evitare instabilità numerica in DART,
 # ma trascurabili rispetto alla massa principale di 6000 kg.
-intermediate_mass = 1.0 # kg
-intermediate_ixx  = 0.1  # kg·m²
-intermediate_iyy  = 0.1
-intermediate_izz  = 0.1
+intermediate_mass = 10 # kg
+intermediate_ixx  = 10  # kg·m²
+intermediate_iyy  = 10
+intermediate_izz  = 10
 
 #==========================================================
 # ----- corridor parameters -------------------------------
@@ -42,21 +42,22 @@ bias = tuple(d-c for d,c in zip(corridor_pose,center_stl)) # bias = (38.583, -5.
 corridor_pose = tuple(a + b for a, b in zip(center_stl, bias)) 
 floor_distance = 0.38
 
-corridor_mass = 500.0  # kg
+corridor_mass =10  # kg
 corridor_inertia = [
-    [500.0, 0.0,   0.0  ],
-    [0.0,   500.0, 0.0  ],
-    [0.0,   0.0,   500.0]
+    [10, 0.0,   0.0  ],
+    [0.0,   10, 0.0  ],
+    [0.0,   0.0,   10]
 ]  # kg·m²
 
 # attrito alto per impedire scivolamento del robot durante le oscillazione
-mu  = 8.0
-mu2 = 8.0
+mu  = 1.2
+mu2 = 1.2
 
 #===========================================================
 # ----- robot parameters -----------------------------------
 #===========================================================
 
+robot_mass = 1.37 
 robot_size = (0.354, 0.178, 0.144)
 
 robot_x     = corridor_pose[0] - (corridor_size[0] * scale[0] / 2.0) + (robot_size[0] / 2.0)
@@ -66,6 +67,13 @@ robot_roll  = corridor_pose[3]
 robot_pitch = corridor_pose[4]
 robot_yaw   = corridor_pose[5] 
 robot_pose  = (robot_x, robot_y, robot_z, robot_roll, robot_pitch, robot_yaw)
+
+#===========================================================
+# ----- counter weight to balance for ship control ---------
+#===========================================================
+#total mass (corridor+robot)
+total_payload_mass = corridor_mass + 1.37 
+cw_pose_str = "{} {} {} 0 0 0".format(-corridor_pose[0], -corridor_pose[1], corridor_pose[2])
 
 #==========================================================
 # --------- obtacles --------------------------------------
@@ -111,6 +119,8 @@ revolute_friction = 10.0
 prismatic_damping  = 100.0
 prismatic_friction = 10.0
 
+max_step_size = 0.0005
+
 #===========================================================
 # ----- IMU ship parameters --------------------------------
 #===========================================================
@@ -146,7 +156,7 @@ imu_bias_gyro   = 0.0
         <gravity>0 0 -9.81</gravity>
 
         <physics name="default_physics" type="dart">
-            <max_step_size>0.001</max_step_size>
+            <max_step_size>@(max_step_size)</max_step_size>
             <real_time_factor>1.0</real_time_factor>
         </physics>
 
@@ -281,6 +291,13 @@ imu_bias_gyro   = 0.0
                         <izz>@(ship_inertia[2][2])</izz>
                     </inertia>
                 </inertial>
+                
+                <!--
+                <velocity_decay>
+                    <linear>0.05</linear>
+                    <angular>0.05</angular>
+                </velocity_decay>
+                -->
 
                 <visual name="ship_hull">
                     <geometry>
@@ -362,6 +379,14 @@ imu_bias_gyro   = 0.0
                     <surface>
                         <contact>
                             <collide_bitmask>0xffff</collide_bitmask>
+                            <!--
+                            <ode>
+                                <kp>1000000</kp>
+                                <kd>100.0</kd>
+                                <max_vel>0.01</max_vel> 
+                                <min_depth>0.001</min_depth> 
+                            </ode>
+                            -->
                         </contact>
                         <friction>
                             <ode>
@@ -376,6 +401,32 @@ imu_bias_gyro   = 0.0
             <joint name="corridor_joint" type="fixed">
                 <parent>CoG_link</parent>
                 <child>corridor_link</child>
+            </joint>
+
+            <!--================================-->
+            <!-- contrappeso per controllo nave -->
+            <!--================================-->
+            <link name="counterweight_link">
+                <pose relative_to='CoG_link'>@(cw_pose_str)</pose>
+                <gravity>false</gravity>
+                <inertial>
+                    <mass>@(total_payload_mass)</mass>
+                    <inertia>
+                        <ixx>1.0</ixx> <iyy>1.0</iyy> <izz>1.0</izz>
+                    </inertia>
+                </inertial>
+                <visual name="counterweight_visual">
+                    <geometry><sphere><radius>0.3</radius></sphere></geometry>
+                    <material>
+                        <ambient>1 0 0 0.5</ambient>
+                        <diffuse>1 0 0 0.5</diffuse>
+                    </material>
+                </visual>
+            </link>
+
+            <joint name="counterweight_joint" type="fixed">
+                <parent>CoG_link</parent>
+                <child>counterweight_link</child>
             </joint>
 
             <!--===============================-->
@@ -458,6 +509,8 @@ imu_bias_gyro   = 0.0
                 <heave_amplitude>@(heave_amplitude)</heave_amplitude>
                 <heave_frequency>@(heave_frequency)</heave_frequency>
                 <heave_phase>@(heave_phase)</heave_phase>
+
+                <max_step_size>@(max_step_size)</max_step_size>
             </plugin>
 
             <!--===============================-->
