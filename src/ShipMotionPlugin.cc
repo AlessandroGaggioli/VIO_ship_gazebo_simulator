@@ -1,5 +1,24 @@
 //ShipMotionPlugin.cc
 
+/*
+This file implements the ShipMotionPlugin class, 
+which is a Gazebo plugin that simulates the motion of a ship by controlling its roll, pitch, and heave joints.
+The plugin reads parameters from an SDF file to define the motion characteristics and applies forces to the joints using a PID controller.
+The plugin is designed to be used in a Gazebo simulation environment 
+and can be configured through an SDF file that specifies the desired motion parameters and joint names.
+
+some key features of the plugin include:
+- Configurable motion parameters: The plugin allows users to specify the amplitude, frequency, and phase for roll, pitch, and heave motions through the SDF file.
+- PID control: The plugin implements a simple PID controller to calculate the forces needed to achieve the desired joint positions and velocities based on the current state of the joints.
+- Ramp-up functionality: To ensure a smooth start of the motion, the plugin includes a ramp-up mechanism that gradually increases the applied forces over a specified duration at the beginning of the motion.
+- Integration with Gazebo: The plugin is designed to work seamlessly within the Gazebo simulation environment, utilizing its entity-component system to manage the ship model and its joints.
+
+TO DO:
+- Implement a feed-forward control component to improve the accuracy of the joint movements by anticipating the required forces based on the desired motion profile.
+- Tune gains of the PID controller (Kp, Ki, Kd) to achieve better performance and stability of the ship's motion.
+- Modify the motion of the ship to follow a more realistic wave pattern, potentially by using a combination of sinusoidal functions or by incorporating real wave data into the motion calculations.
+*/
+
 #include "ship_gazebo/ShipMotionPlugin.hh"         
 
 GZ_ADD_PLUGIN(
@@ -22,52 +41,52 @@ namespace ship_gazebo {
         gz::sim::EntityComponentManager &_ecm,
         gz::sim::EventManager &/*_eventMgr*/) //to avoid a warning (we don't use _eventMgr)
     {
-        this->model = gz::sim::Model(_entity) ; //assegna un entity a model 
+        this->model = gz::sim::Model(_entity) ; //assign a entity to the model 
     
-        if(!this->model.Valid(_ecm)) { //controlla che l'entity esista nel database (_ecm)
+        if(!this->model.Valid(_ecm)) { //check if the entity is valid in the component manager (_ecm)
             gzerr << "[ShipMotionPlugin] Entity not valid\n" ; 
             return ; 
         }
         
-        // funziona lambda: funzione temporanea dentro un'altra funzione
-        /* definiamo una funzione lambda che legge un parametro double dall' SDF se esiste*/
+        // lambda function: a function defined inside another function, that can capture variables from the enclosing scope.
+        //define a lambda function to read a double parameter from the SDF file if it exists
         auto loadParam = [&](const std::string &name,double &param) {
-            /* [&] per accedere per riferimento alle variabili locali del metodo
-            &name -> stringa del double da cercare nell' SDF
-            &param -> variabile membro da aggiornare, passata per riferimento
+            /* [&] to access local variables of the method by reference
+            &name -> string of the double to search in the SDF
+            &param -> member variable to update, passed by reference
             */
             if(_sdf->HasElement(name))
                 param = _sdf->Get<double>(name) ; 
         };
 
-        //ora la funzione restituisce un'entità gz::sim::Entity
+        //now the function returns a gz::sim::Entity entity
         auto loadJoint = [&](const std::string &name) -> gz::sim::Entity {
             gz::sim::Entity joint = this->model.JointByName(_ecm,name) ; 
             if (joint == gz::sim::kNullEntity)
                 gzwarn << "[ShipMotionPlugin]" << name << "not found\n" ; 
-            //restituisco il valore del joint letto dal file SDF
+            //return the joint entity read from the SDF file
             return joint ; 
         } ; 
         
-        // lettura parametri roll
+        // read roll parameters from the SDF file
         loadParam("roll_amplitude", this->rollAmplitude);
         loadParam("roll_frequency", this->rollFrequency);
         loadParam("roll_phase",     this->rollPhase);
 
-        // lettura parametri pitch
+        // read pitch parameters from the SDF file
         loadParam("pitch_amplitude", this->pitchAmplitude);
         loadParam("pitch_frequency", this->pitchFrequency);
         loadParam("pitch_phase",     this->pitchPhase);
 
-        // lettura parametri heave
+        // read heave parameters from the SDF file
         loadParam("heave_amplitude", this->heaveAmplitude);
         loadParam("heave_frequency", this->heaveFrequency);
         loadParam("heave_phase",     this->heavePhase);
 
-        //load max_step_size 
+        // read max step size (dt) from the SDF file
         loadParam("max_step_size",this->dt) ; 
 
-        //lettura joints 
+        //read joints from the SDF file
         this->rollJoint = loadJoint("roll_joint") ; 
         this->pitchJoint = loadJoint("pitch_joint") ; 
         this->heaveJoint = loadJoint("heave_joint") ; 
@@ -99,17 +118,17 @@ namespace ship_gazebo {
        if(t>=3) {
             double t_motion = t - 2.0 ; 
             
-            // --- INIZIO RAMPA ---
-            double rampDuration = 5.0; // Durata della rampa in secondi
-            double rampFactor = 1.0;   // Moltiplicatore di default (100% della forza)
+            // --- START RAMP-UP ---
+            double rampDuration = 5.0; // Duration of the ramp in seconds
+            double rampFactor = 1.0;   // default multiplier (100% of the force)
             
-            // Se siamo nei primi 5 secondi di movimento, il fattore sale da 0 a 1 linearmente
+            // If we are in the first 5 seconds of motion, the factor rises from 0 to 1 linearly
             if (t_motion < rampDuration) {
                 rampFactor = t_motion / rampDuration;
             }
-            // --- FINE RAMPA ---
+            // --- END RAMP-UP ---
 
-            // Applichiamo il rampFactor alle ampiezze per un avvio morbido
+            // Apply the ramp factor to the amplitudes for a smooth start
             rollPos = rampFactor * this->rollAmplitude * std::sin(2.0*M_PI*this->rollFrequency*t_motion+this->rollPhase) ; 
             pitchPos = rampFactor * this->pitchAmplitude * std::sin(2.0*M_PI*this->pitchFrequency*t_motion+this->pitchPhase) ; 
             heavePos = rampFactor * this->heaveAmplitude * std::sin(2.0*M_PI*this->heaveFrequency*t_motion+this->heavePhase) ; 
@@ -152,16 +171,16 @@ namespace ship_gazebo {
             if (joint == this->rollJoint) {
                 this->rollIntegralError += errorPos * this->dt;
                 // Anti-windup (using clamp)
-                this->rollIntegralError = std::clamp(this->rollIntegralError, -1.0, 1.0);
+                this->rollIntegralError = std::clamp(this->rollIntegralError, -1.0, 1.0); //std::clamp to anti-windup the integral term
                 currentIntegral = this->rollIntegralError;
             } else if(joint == this->pitchJoint) {
                 this->pitchIntegralError += errorPos * this->dt;
-                this->pitchIntegralError = std::clamp(this->pitchIntegralError, -1.0, 1.0);
+                this->pitchIntegralError = std::clamp(this->pitchIntegralError, -1.0, 1.0); //std::clamp to anti-windup the integral term
                 currentIntegral = this->pitchIntegralError;
             }
             else if (joint == this->heaveJoint) {
                 this->heaveIntegralError += errorPos * this->dt ; 
-                this->heaveIntegralError = std::clamp(this->heaveIntegralError,-0.5,0.5) ; 
+                this->heaveIntegralError = std::clamp(this->heaveIntegralError,-0.5,0.5) ;  //std::clamp to anti-windup the integral term
                 currentIntegral = this->heaveIntegralError ; 
             }
             

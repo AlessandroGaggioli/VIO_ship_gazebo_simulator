@@ -1,3 +1,10 @@
+//ShipMotionPlugin.hh
+
+/*
+This file is part of the Ship Gazebo Plugin, a plugin for the Gazebo simulator that simulates ship motion.
+
+*/
+
 #pragma once //to include only once time 
 
 #include <gz/sim/System.hh> 

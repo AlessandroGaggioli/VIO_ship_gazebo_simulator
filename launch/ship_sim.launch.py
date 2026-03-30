@@ -1,3 +1,19 @@
+"""
+Launch file for the ship simulation in Gazebo. 
+It sets up the environment, launches the Gazebo simulator with the specified world, 
+and starts the necessary ROS 2 nodes for camera processing and IMU compensation.
+
+it includes:
+- Environment variable setup for Gazebo plugins and resources
+- Cleanup of old Gazebo GUI config files to prevent issues with the simulator
+- Execution of the Gazebo simulator with the specified SDF world
+- Launching the ROS-Gazebo bridge to connect Gazebo topics to ROS 2
+- Static transforms for the cameras and IMU
+- Image processing nodes for rectifying camera images and generating disparity maps
+- IMU compensator node to adjust IMU readings based on the robot's spawn position in the world
+"""
+
+
 import os
 import subprocess
 from ament_index_python.packages import get_package_share_directory, get_package_prefix
@@ -14,9 +30,9 @@ def generate_launch_description():
                 if 'gui.config' in files:
                     try:
                         os.remove(os.path.join(root, 'gui.config'))
-                        print(f"PULIZIA: rimosso {root}/gui.config")
+                        print(f"cleaning: deleted {root}/gui.config")
                     except Exception as e:
-                        print(f"ERRORE PULIZIA: {e}")
+                        print(f"error cleaning up: {e}")
 
     pkg_share = get_package_share_directory('ship_gazebo')
     pkg_prefix = get_package_prefix('ship_gazebo') 
@@ -44,32 +60,31 @@ def generate_launch_description():
                     coords = [float(x) for x in pose_text.split()]
                     return coords[0], coords[1], coords[2]
         except Exception as e: 
-            print(f"ERRORE LETTURA SDF: {e}")
+            print(f"error reading sdf: {e}")
         return 0.0,0.0,0.0
     
     sx,sy,sz = get_robot_spawn_from_sdf(sdf_out)
-    print(f"DEBUG: Robot spawn rilevato dall'SDF -> X:{sx}, Y:{sy}, Z:{sz}")
+    print(f"DEBUG: Robot spawn in the SDF -> X:{sx}, Y:{sy}, Z:{sz}")
 
     left_camera_tf = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name='camera_left_tf',
-        # I numeri sono: X Y Z (metri) Yaw Pitch Roll (radianti) -> frame_padre frame_figlio
-        arguments=['0.07', '0.06', '0.10', '0', '0', '0', 'base_link', 'camera_left_link']
+        arguments=['0.07', '0.06', '0.10', '-1.570796', '0', '-1.570796', 'base_footprint', 'turtlebot3_waffle/base_link/stereo_camera_left']
     )
 
     right_camera_tf = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name='camera_right_tf',
-        arguments=['0.07', '-0.06', '0.10', '0', '0', '0', 'base_link', 'camera_right_link']
+        arguments=['0.07', '-0.06', '0.10', '-1.570796', '0', '-1.570796', 'base_footprint', 'turtlebot3_waffle/base_link/stereo_camera_right']
     )
-
+    
     imu_tf = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name='imu_tf',
-        arguments=['0', '0', '0', '0', '0', '0', 'base_link', 'imu_link']
+        arguments=['-0.032', '0', '0.068', '0', '0', '0', 'base_footprint', 'imu_link']
     )
 
     left_camera_rect = Node(
@@ -77,9 +92,9 @@ def generate_launch_description():
         executable='rectify_node',
         name='rectify_left',
         remappings=[
-            ('image','/camera/left/image_raw'), #topic pubblicato da Gazebo
+            ('image','/camera/left/image_raw'), # topic published by Gazebo
             ('camera_info','/camera/left/camera_info'),
-            ('image_rect','/camera/left/image_rect') #topic image rectified 
+            ('image_rect','/camera/left/image_rect') # rectified image topic
         ],
         parameters=[{
             'approximate_sync':True,
@@ -120,10 +135,10 @@ def generate_launch_description():
         parameters=[{
             'approximate_sync':True,
             'queue_size':20,
-            'stereo_algorithm': 1, # 0 = BM, 1 = SGBM (più preciso)
+            'stereo_algorithm': 1, # 0 = BM, 1 = SGBM (more accurate)
             'correlation_window_size': 15, 
             'min_disparity': 0,
-            'num_disparities': 64 # multiplo di 16
+            'num_disparities': 64 # multiple of 16
         }],
         on_exit=LogInfo(msg='Disparity node closed.'),
         respawn=False,
@@ -154,7 +169,8 @@ def generate_launch_description():
             'enable':True,
             'spawn_x':sx,
             'spawn_y':sy,
-            'spawn_z':sz
+            'spawn_z':sz,
+            'use_sim_time':True
         }]
     )
     
@@ -202,5 +218,6 @@ def generate_launch_description():
         right_camera_rect,
         disparity_map,
         stereo_view,
-        compensate_imu
+        compensate_imu,
+
     ])

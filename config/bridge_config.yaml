@@ -1,6 +1,14 @@
 # bridge_config.yaml 
 # bridge from Gazebo topic to ROS2 topic bridge configuration
 
+# ROS Clock
+- ros_topic_name: /clock
+  gz_topic_name: /clock
+  ros_type_name: rosgraph_msgs/msg/Clock
+  gz_type_name: gz.msgs.Clock
+  direction: GZ_TO_ROS
+  lazy: false
+
 # IMU ship 
 - ros_topic_name: /ship/imu/raw
   gz_topic_name: /world/ship_world/model/ship_corridor_dynamic/link/CoG_link/sensor/ship_imu/imu

@@ -1,4 +1,34 @@
 #!/usr/bin/env python3
+
+"""
+This node subscribes to the raw IMU data of the ship and the robot, as well as the robot's odometry, 
+to compute a compensated IMU message for the robot that accounts for the ship's motion (including tangential, centrifugal, and Coriolis accelerations).
+The compensated IMU data is published on the /robot/imu/compensated topic.
+The compensation can be enabled or disabled via a ROS parameter.
+
+The compensation is based on the following equations:
+- Apparent acceleration (acc_app) = tangential acceleration + centrifugal acceleration + Coriolis acceleration
+- Compensated acceleration (acc_comp) = a_raw - R_s^r * (a_ship + acc_app) + R_s^r * g
+- Compensated angular velocity (omega_comp) = omega_raw - R_s^r * omega_ship
+Where:
+- a_raw and omega_raw are the raw linear acceleration and angular velocity from the robot's IMU
+- a_ship and omega_ship are the linear acceleration and angular velocity of the ship
+- R_s^r is the rotation matrix from the ship's frame to the robot's frame
+- g is the gravity vector (0, 0, 9.81 m/s^2) 
+
+The synchronization of the data is handled by using the timestamps of the incoming messages, and the compensation is computed in real-time as new data arrives.
+qos_profile_sensor_data is used for the subscriptions to ensure that we get the most recent data without worrying about message history, which is important for real-time compensation.
+
+How to enable/disable compensation:
+- The compensation can be enabled or disabled using the ROS parameter 'enable'.
+- To enable compensation, set the parameter to True (default is True):
+ros2 param set /imu_compensator enable true
+- To disable compensation, set the parameter to False:
+ros2 param set /imu_compensator enable false
+When compensation is disabled, the node will simply pass through the raw IMU data from the robot without applying any corrections based on the ship's motion. 
+
+"""
+
 import rclpy
 from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
@@ -12,6 +42,22 @@ import numpy as np
 #=============================================
 # data classes
 #==============================================
+"""
+In this section, we define two data classes, ShipState and RobotState, 
+to store the relevant information about the ship and the robot, respectively.
+- ShipState: This class holds: 
+    the latest IMU message from the ship, 
+    the last timestamp when the ship's IMU data was received, 
+    the current angular velocity (omega) of the ship, 
+    the angular acceleration (omega_dot) of the ship, 
+    and the linear acceleration of the ship.
+- RobotState: This class holds:
+    the linear velocity of the robot (in the local frame),
+    the pose of the robot relative to the ship,
+    the angular velocity of the robot,
+    and the linear acceleration of the robot.
+These classes are used to store and organize the data received from the ship and robot.
+"""
 class ShipState:
     def __init__(self):
         self.msg = None
@@ -30,6 +76,16 @@ class RobotState:
 #===============================================
 # ROS Node 
 #===============================================
+
+"""
+The ImuCompensator node is responsible for subscribing to the raw IMU data from the ship and the robot, 
+as well as the robot's odometry, to compute a compensated IMU message for the robot that accounts for the ship's motion.
+
+The node initializes by declaring parameters for enabling compensation and for the robot's spawn position.
+It subscribes to the ship's raw IMU data, the robot's odometry, and the robot's raw IMU data.
+When new data is received, it computes the compensation based on the ship's motion and orientation,
+and publishes the compensated IMU data on the /robot/imu/compensated topic.
+"""
 
 class ImuCompensator(Node):
     def __init__(self):
@@ -165,6 +221,7 @@ class ImuCompensator(Node):
         # create and pub the compensation message
         comp_msg = Imu()
         comp_msg.header= msg.header 
+        comp_msg.header.frame_id = "imu_link"  
         comp_msg.orientation = msg.orientation
         comp_msg.orientation_covariance = msg.orientation_covariance
 

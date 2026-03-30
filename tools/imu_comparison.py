@@ -1,0 +1,250 @@
+#!/usr/bin/env python3
+
+"""
+script to compare raw and compensated IMU data from the robot with the ship's IMU data, and log them to a CSV file for offline analysis.
+The script subscribes to three IMU topics:
+- /robot/imu/raw: the raw IMU data from the robot (before compensation)
+- /robot/imu/compensated: the compensated IMU data from the robot 
+- /ship/imu/raw: the raw IMU data from the ship 
+The script performs approximate-time synchronization of the three streams, ensuring that only samples that are close in time are logged together.
+The synchronized data is written to a CSV file with columns for timestamps, raw robot IMU, compensated robot IMU, and ship IMU values.
+"""
+
+import argparse
+import rclpy
+from rclpy.node import Node
+from sensor_msgs.msg import Imu
+from rclpy.qos import qos_profile_sensor_data
+import csv
+import matplotlib.pyplot as plt
+from collections import deque
+
+class ImuLogger(Node):
+    def __init__(self, csv_path='imu_comparison.csv'):
+        super().__init__('imu_logger')
+        self.csv_path = csv_path
+        
+        # Subscribe to three IMU streams:
+        # - robot raw IMU
+        # - robot compensated IMU (used as timing reference)
+        # - ship raw IMU
+        self.sub_raw = self.create_subscription(Imu, '/robot/imu/raw', self.raw_cb, qos_profile_sensor_data)
+        self.sub_comp = self.create_subscription(Imu, '/robot/imu/compensated', self.comp_cb, qos_profile_sensor_data)
+        self.sub_raw_ship = self.create_subscription(Imu, '/ship/imu/raw', self.ship_imu_cb, qos_profile_sensor_data) 
+        
+        # Open CSV file for writing (same default name used by the plotting script).
+        self.file = open(self.csv_path, 'w', newline='')
+        self.writer = csv.writer(self.file)
+        self.sample_count = 0
+       
+        self.writer.writerow([
+            'timestamp', 
+            'raw_acc_x', 'raw_acc_y', 'raw_acc_z', 'raw_omega_x', 'raw_omega_y', 'raw_omega_z',
+            'comp_acc_x', 'comp_acc_y', 'comp_acc_z', 'comp_omega_x', 'comp_omega_y', 'comp_omega_z',
+            'ship_acc_x', 'ship_acc_y', 'ship_acc_z', 'ship_omega_x', 'ship_omega_y', 'ship_omega_z'
+        ])
+
+        # Buffers for plotting time-series of each axis.
+        self.t_data = []
+        self.raw_acc = {'x': [], 'y': [], 'z': []}
+        self.raw_omega = {'x': [], 'y': [], 'z': []}
+        self.comp_acc = {'x': [], 'y': [], 'z': []}
+        self.comp_omega = {'x': [], 'y': [], 'z': []}
+        self.ship_acc = {'x': [], 'y': [], 'z': []}
+        self.ship_omega = {'x': [], 'y': [], 'z': []}
+
+        # Approximate-time synchronization settings.
+        # A compensated sample is logged only if raw and ship samples are close in time.
+        # We use deque as a rolling buffer because it gives O(1) append and popleft,
+        # which is ideal for real-time streams where old samples are continuously dropped.
+        # maxlen keeps memory bounded automatically by discarding the oldest entries.
+        self.max_sync_dt = 0.02  # 20 ms
+        self.max_history_sec = 0.5
+        self.raw_buffer = deque(maxlen=5000)
+        self.ship_buffer = deque(maxlen=5000)
+        self.start_time = None
+
+        self.get_logger().info(
+            f"IMU Logger initialized. Writing to '{self.csv_path}'. Waiting for data... Press Ctrl+C to stop."
+        )
+
+    @staticmethod
+    def msg_time(msg):
+        # Convert ROS2 header stamp to float seconds.
+        return msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
+
+    @staticmethod
+    def find_closest(buffer, target_t):
+        # Find the message whose timestamp is nearest to target_t.
+        if not buffer:
+            return None, None
+        best_t, best_msg = min(buffer, key=lambda pair: abs(pair[0] - target_t))
+        return best_t, best_msg
+
+    @staticmethod
+    def prune_old(buffer, cutoff_t):
+        # Drop old samples to keep lookup efficient and memory bounded.
+        while buffer and buffer[0][0] < cutoff_t:
+            buffer.popleft()
+
+    def raw_cb(self, msg):
+        # Store timestamped raw robot IMU sample.
+        self.raw_buffer.append((self.msg_time(msg), msg))
+
+    def ship_imu_cb(self, msg):
+        # Store timestamped raw ship IMU sample.
+        self.ship_buffer.append((self.msg_time(msg), msg))
+
+    def comp_cb(self, msg):
+        # Use compensated timestamp as reference and align the other streams to it.
+        current_time = self.msg_time(msg)
+
+        # Remove stale samples before matching.
+        cutoff_t = current_time - self.max_history_sec
+        self.prune_old(self.raw_buffer, cutoff_t)
+        self.prune_old(self.ship_buffer, cutoff_t)
+
+        # Nearest-neighbor matching for raw and ship IMU.
+        raw_t, raw_msg = self.find_closest(self.raw_buffer, current_time)
+        ship_t, ship_msg = self.find_closest(self.ship_buffer, current_time)
+
+        # Skip this cycle if any stream is missing.
+        if raw_msg is None or ship_msg is None:
+            return
+
+        # Accept only synchronized triplets within tolerance.
+        if abs(raw_t - current_time) > self.max_sync_dt or abs(ship_t - current_time) > self.max_sync_dt:
+            return
+
+        # Build a relative timeline that starts from the first valid sample.
+        if self.start_time is None:
+            self.start_time = current_time
+        t = current_time - self.start_time
+
+        # --- Raw data ---
+        ra_x = raw_msg.linear_acceleration.x
+        ra_y = raw_msg.linear_acceleration.y
+        ra_z = raw_msg.linear_acceleration.z
+        ro_x = raw_msg.angular_velocity.x
+        ro_y = raw_msg.angular_velocity.y
+        ro_z = raw_msg.angular_velocity.z
+
+        # --- compensated data ---
+        ca_x = msg.linear_acceleration.x
+        ca_y = msg.linear_acceleration.y
+        ca_z = msg.linear_acceleration.z
+        co_x = msg.angular_velocity.x
+        co_y = msg.angular_velocity.y
+        co_z = msg.angular_velocity.z
+
+        # --- ship data ---
+        sa_x = ship_msg.linear_acceleration.x
+        sa_y = ship_msg.linear_acceleration.y
+        sa_z = ship_msg.linear_acceleration.z
+        so_x = ship_msg.angular_velocity.x
+        so_y = ship_msg.angular_velocity.y
+        so_z = ship_msg.angular_velocity.z
+
+        # Write synchronized values to CSV.
+        self.writer.writerow([
+            current_time, 
+            ra_x, ra_y, ra_z, ro_x, ro_y, ro_z,
+            ca_x, ca_y, ca_z, co_x, co_y, co_z,
+            sa_x, sa_y, sa_z, so_x, so_y, so_z
+        ])
+        self.sample_count += 1
+
+        # Flush periodically so data is not kept in memory for too long.
+        if self.sample_count % 100 == 0:
+            self.file.flush()
+
+        # Append same synchronized values to plotting arrays.
+        self.t_data.append(t)
+        
+        self.raw_acc['x'].append(ra_x)
+        self.raw_acc['y'].append(ra_y)
+        self.raw_acc['z'].append(ra_z)
+        self.raw_omega['x'].append(ro_x)
+        self.raw_omega['y'].append(ro_y)
+        self.raw_omega['z'].append(ro_z)
+
+        self.comp_acc['x'].append(ca_x)
+        self.comp_acc['y'].append(ca_y)
+        self.comp_acc['z'].append(ca_z)
+        self.comp_omega['x'].append(co_x)
+        self.comp_omega['y'].append(co_y)
+        self.comp_omega['z'].append(co_z)
+
+        self.ship_acc['x'].append(sa_x)
+        self.ship_acc['y'].append(sa_y)
+        self.ship_acc['z'].append(sa_z)
+        self.ship_omega['x'].append(so_x)
+        self.ship_omega['y'].append(so_y)
+        self.ship_omega['z'].append(so_z)
+
+def plot_results(node):
+    # Plot only if at least one synchronized sample has been recorded.
+    if not node.t_data:
+        print("No data collected to plot.")
+        return
+
+    # Layout: first row acceleration (x,y,z), second row angular velocity (x,y,z).
+    fig, axs = plt.subplots(2, 3, figsize=(16, 9))
+    fig.suptitle('Comparison IMU Robot: Raw (Red) vs Compensated (Blue) + Ship (Green)', fontsize=16)
+
+    asse_nomi = ['x', 'y', 'z']
+    titoli_acc = ['Linear Acceleration X', 'Linear Acceleration Y', 'Linear Acceleration Z']
+    titoli_omega = ['Angular Velocity X', 'Angular Velocity Y', 'Angular Velocity Z']
+
+    # First row: linear acceleration comparison for x, y, z.
+    for i, asse in enumerate(asse_nomi):
+        axs[0, i].plot(node.t_data, node.raw_acc[asse], label='Raw', color='red', alpha=0.6, linewidth=1.5)
+        axs[0, i].plot(node.t_data, node.comp_acc[asse], label='Compensated', color='blue', alpha=0.8, linewidth=1.5)
+        axs[0, i].plot(node.t_data, node.ship_acc[asse], label='Ship', color='green', alpha=0.8, linewidth=1.5)
+        axs[0, i].set_title(titoli_acc[i])
+        axs[0, i].set_xlabel('time (s)')
+        axs[0, i].set_ylabel('m/s^2')
+        axs[0, i].grid(True, linestyle='--', alpha=0.7)
+        axs[0, i].legend()
+
+    # Second row: angular velocity comparison for x, y, z.
+    for i, asse in enumerate(asse_nomi):
+        axs[1, i].plot(node.t_data, node.raw_omega[asse], label='Raw', color='red', alpha=0.6, linewidth=1.5)
+        axs[1, i].plot(node.t_data, node.comp_omega[asse], label='Compensated', color='blue', alpha=0.8, linewidth=1.5)
+        axs[1, i].plot(node.t_data, node.ship_omega[asse], label='Ship', color='green', alpha=0.8, linewidth=1.5)
+        axs[1, i].set_title(titoli_omega[i])
+        axs[1, i].set_xlabel('time (s)')
+        axs[1, i].set_ylabel('rad/s')
+        axs[1, i].grid(True, linestyle='--', alpha=0.7)
+        axs[1, i].legend()
+
+    plt.tight_layout()
+    plt.show()
+
+
+def main():
+    # Standard ROS2 lifecycle: init -> spin -> cleanup.
+    parser = argparse.ArgumentParser(description='Log synchronized IMU streams to CSV.')
+    parser.add_argument('--csv', default='imu_comparison.csv', help='Output CSV file path')
+    parser.add_argument('--no-plot', action='store_true', help='Disable plotting on exit')
+    args = parser.parse_args()
+
+    rclpy.init()
+    node = ImuLogger(csv_path=args.csv)
+    
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        node.get_logger().info("stopping IMU Logger and plotting results...")
+    finally:
+        # Always close file and show plots, even when interrupted with Ctrl+C.
+        node.file.flush()
+        node.file.close() # save CSV file
+        node.get_logger().info(f"Saved {node.sample_count} synchronized rows to '{node.csv_path}'.")
+        if not args.no_plot:
+            plot_results(node) # plot results
+        node.destroy_node()
+        rclpy.shutdown()
+
+if __name__ == '__main__':
+    main()
