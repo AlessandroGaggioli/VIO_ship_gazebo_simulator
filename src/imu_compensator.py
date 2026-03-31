@@ -39,6 +39,7 @@ from scipy.spatial.transform import Rotation as R
 from geometry_msgs.msg import Pose
 import numpy as np
 
+
 #=============================================
 # data classes
 #==============================================
@@ -72,6 +73,51 @@ class RobotState:
         self.pose_rel_ship = Pose()
         self.omega = np.zeros(3)
         self.a_linear = np.zeros(3)
+
+"""
+source: 
+https://gist.github.com/moorepants/bfea1dc3d1d90bdad2b5623b4a9e9bee
+
+David Winter filter. 
+Butterworth low-pass filter of the 2nd order. 
+Moorepants implmentation. 
+Changed to elaborate 3D signals. 
+"""
+
+class WinterLowPass3D: 
+    def __init__(self,cutoff_freq, sample_time):
+        #sampling frequency
+        sampling_rate = 1.0 / sample_time
+        #prewarping cutoff frequency
+        correction_factor = 1.0 
+        corrected_cutoff_freq = np.tan(np.pi * cutoff_freq / sampling_rate) / correction_factor
+
+        # coefficient 
+        K1 = np.sqrt(2) * corrected_cutoff_freq
+        K2 = corrected_cutoff_freq ** 2
+
+        #direct coefficients
+        self.a0 = K2 / (1 + K1 + K2)
+        self.a1 = 2 * self.a0
+        self.a2 = self.a0
+
+        K3 = self.a1 / K2
+        self.b1 = -self.a1 + K3
+        self.b2 = 1.0 -self.a1 - K3
+
+        self.x1 = np.zeros(3)
+        self.x2 = np.zeros(3)
+        self.y1 = np.zeros(3)
+        self.y2 = np.zeros(3)
+
+    def filter(self,x0):
+        y0 = (self.a0 * x0) + (self.a1 * self.x1) + (self.a2 * self.x2) + (self.b1 * self.y1) + (self.b2 * self.y2)
+        self.x2 = np.copy(self.x1)
+        self.x1 = np.copy(x0)
+        self.y2 = np.copy(self.y1)
+        self.y1 = np.copy(y0)
+        return y0
+
 
 #===============================================
 # ROS Node 
@@ -123,7 +169,16 @@ class ImuCompensator(Node):
         self.pub_imu_comp = self.create_publisher(Imu,'/robot/imu/compensated',10)
 
         #gravity 
-        self.g_vec=np.array([0.0,0.0,9.81]) 
+        self.g_vec=np.array([0.0,0.0,9.81])
+
+        # Filter for omega to reduce noise in the angular velocity measurements of the ship, which can be noisy and affect the compensation accuracy
+        self.omega_filter = WinterLowPass3D(cutoff_freq=2.0, sample_time=0.01)
+
+        # Filter for omega_dot to reduce noise in the differentiation of angular velocity
+        self.omega_dot_filter = WinterLowPass3D(cutoff_freq=1.0, sample_time=0.01)
+
+        # Filter for linear acceleration to reduce noise in the compensation (especially for high-frequency ship motions)
+        self.acc_filter = WinterLowPass3D(cutoff_freq=2.0, sample_time=0.005) 
 
         self.get_logger().info("Imu compensator initialized.")
 
@@ -150,9 +205,10 @@ class ImuCompensator(Node):
         # angular acceleration -- computation from omega and last_time 
         if self.ship.last_time is not None:
             dt = time - self.ship.last_time
-            if dt>0.0: 
+            if dt>0.005: # avoid too small dt that can cause noise in the differentiation
                 if self.ship.omega is not None: 
-                    self.ship.omega_dot = (omega_current - self.ship.omega) / dt
+                    raw_omega_dot = (omega_current - self.ship.omega) / dt
+                    self.ship.omega_dot = self.omega_dot_filter.filter(raw_omega_dot)
 
         # Update omega and time
         self.ship.omega = omega_current
@@ -217,6 +273,11 @@ class ImuCompensator(Node):
             acc_comp, omega_comp = self.compute_compensation()
         else: 
             acc_comp,omega_comp = self.robot.a_linear, self.robot.omega
+
+        # filter the compensated acceleration to reduce noise
+        acc_comp = self.acc_filter.filter(acc_comp) 
+        # filter the compensated angular velocity to reduce noise
+        omega_comp = self.omega_filter.filter(omega_comp)
         
         # create and pub the compensation message
         comp_msg = Imu()

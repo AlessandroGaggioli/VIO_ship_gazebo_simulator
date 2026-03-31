@@ -1,4 +1,3 @@
-
 <?xml version="1.0" ?>
 <sdf version="1.8">
 
@@ -277,7 +276,7 @@
             <!-- contrappeso per controllo nave -->
             <!--================================-->
             <link name="counterweight_link">
-                <pose relative_to='CoG_link'>-40.0 -5.0 2.5 0 0 0</pose>
+                <pose relative_to='CoG_link'>-40.0 -5.0 -2.5 0 0 0</pose>
                 <gravity>false</gravity>
                 <inertial>
                     <mass>11.370000000000001</mass>
@@ -382,73 +381,6 @@
 
                 <max_step_size>0.0005</max_step_size>
             </plugin>
-
-            <!--===============================-->
-            <!--===========OBSTACLE 1==========-->
-            <!--===============================-->
-
-            <link name="obstacle_1_link">
-                <pose relative_to='corridor_link'>-0.75 -0.3 -0.28 0 0 0</pose>
-                <gravity>false</gravity>
-
-                <collision name="collision">
-                    <geometry>
-                        <box><size>0.2 0.2 0.2</size></box>
-                    </geometry>
-                </collision>
-
-                <visual name="visual">
-                    <geometry>
-                        <box><size>0.2 0.2 0.2</size></box>
-                    </geometry>
-                    <material>
-                        <ambient>1 0 0 1</ambient>
-                        <diffuse>1 0 0 1</diffuse>
-                    </material>
-                </visual>
-            </link>
-
-            <joint name="obstacle_1_joint" type="fixed">
-                <parent>corridor_link</parent>
-                <child>obstacle_1_link</child>
-            </joint>
-            <!--===============================-->
-            
-            <!--===============================-->
-            <!--===============OBSTACLE 2======-->
-            <!--===============================-->
-            <link name="obstacle_2_link">
-                <pose relative_to='corridor_link'>-1.2 0.35 -0.28 0 0 0</pose>
-                <gravity>false</gravity>
-
-                <collision name="collision">
-                    <geometry>
-                        <cylinder>
-                            <radius>0.2</radius>
-                            <length>0.2</length>
-                        </cylinder>
-                    </geometry>
-                </collision>
-
-                <visual name="visual">
-                    <geometry>
-                        <cylinder>
-                            <radius>0.2</radius>
-                            <length>0.2</length>
-                        </cylinder>
-                    </geometry>
-                    <material>
-                        <ambient>0 1 0 1</ambient>
-                        <diffuse>0 1 0 1</diffuse>
-                    </material>
-                </visual>
-            </link>
-
-            <joint name="obstacle_2_joint" type="fixed">
-                <parent>corridor_link</parent>
-                <child>obstacle_2_link</child>
-            </joint>
-            <!--===============================-->
 
         </model>
         <!--===============================-->
