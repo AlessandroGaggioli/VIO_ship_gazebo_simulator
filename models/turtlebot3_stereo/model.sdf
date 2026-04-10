@@ -45,7 +45,7 @@
 
       <!-- CAMERA LEFT and CAMERA RIGHT -->
       <sensor name="stereo_camera_left" type="camera">
-        <pose>0.07 0.06 0.10 0 0 0</pose> 
+        <pose>0.07 0.06 0.30 0 0 0</pose> 
         <always_on>true</always_on>
         <update_rate>30.0</update_rate>
         <topic>/camera/left/image_raw</topic>
@@ -64,7 +64,7 @@
       </sensor>
 
       <sensor name="stereo_camera_right" type="camera">
-        <pose>0.07 -0.06 0.10 0 0 0</pose> 
+        <pose>0.07 -0.06 0.30 0 0 0</pose> 
         <always_on>true</always_on>
         <update_rate>30.0</update_rate>
         <topic>/camera/right/image_raw</topic>
@@ -179,7 +179,6 @@
         <pose>-0.064 0 0.121 0 0 0</pose>
         <update_rate>10</update_rate>
         <topic>scan</topic>
-        <gz_frame_id>base_scan</gz_frame_id>
         <lidar>
           <scan>
             <horizontal>
@@ -441,7 +440,6 @@
         <visualize>true</visualize>
         <update_rate>30</update_rate>
         <topic>camera/image_raw</topic>
-        <gz_frame_id>camera_rgb_frame</gz_frame_id>
         <camera name="intel_realsense_r200">
           <camera_info_topic>camera/camera_info</camera_info_topic>
           <horizontal_fov>1.02974</horizontal_fov>
@@ -577,8 +575,6 @@
       <frame_id>odom</frame_id>
       <child_frame_id>base_footprint</child_frame_id>
       <odom_publisher_frequency>30</odom_publisher_frequency>
-
-      <tf_topic>/tf</tf_topic>
 
     </plugin>
 

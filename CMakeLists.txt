@@ -53,6 +53,7 @@ install(DIRECTORY
 
 install(PROGRAMS
   src/imu_compensator.py
+  src/reset_localization.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

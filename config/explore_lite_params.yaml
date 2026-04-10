@@ -1,0 +1,70 @@
+# explore_lite Configuration for Ship Gazebo
+# ============================================
+# explore_lite performs frontier-based autonomous exploration
+# It detects unexplored areas (frontiers) in the occupancy grid and navigates to them
+#
+# Flow: RTAB-Map → /rtabmap/grid_map → explore_lite → Nav2 goal → Navigation
+#
+
+explore_lite:
+  ros__parameters:
+    use_sim_time: True
+
+    # Robot coordinate frame
+    robot_base_frame: base_footprint
+
+    # ============================================
+    # Costmap Configuration
+    # ============================================
+    # Source of occupancy grid for frontier detection.
+    # In mapping mode, RTAB-Map provides /map used by Nav2 global costmap.
+    costmap_topic: /map
+
+    # Topic for incremental map updates (if available from mapping source)
+    costmap_updates_topic: /map_updates
+
+    # ============================================
+    # Exploration Strategy Parameters
+    # ============================================
+
+    # Enable visualization markers for RViz (frontiers, goals, trajectories)
+    visualize: true
+
+    # How often to recalculate exploration goals (Hz)
+    # 1.0 Hz = every 1 second, good balance between responsiveness and computation
+    planner_frequency: 1.0
+
+    # Timeout if robot makes no progress (seconds)
+    # If robot gets stuck at a frontier for 5s, moves to next frontier
+    progress_timeout: 5.0
+
+    # ============================================
+    # Frontier Selection Weights
+    # ============================================
+
+    # Weight of distance/potential gradient (lower value = prefer closer frontiers)
+    # Range: [0.0, 10.0], default: 3.0
+    potential_scale: 1.0
+
+    # Weight of robot orientation alignment (prefer exploring forward)
+    # Range: [0.0, 10.0], default: 0.0
+    # 3.0 = prefer frontiers aligned with robot heading
+    orientation_scale: 3.0
+
+    # Weight of frontier gain (frontier size in cells)
+    # Range: [0.0, 10.0], default: 1.0
+    # 1.0 = balanced with distance considerations
+    gain_scale: 1.0
+
+    # ============================================
+    # Transform and Frame Configuration
+    # ============================================
+
+    # Tolerance for TF lookups (seconds)
+    # Allow up to 0.3s delay in transform availability
+    # Useful in simulation with varying clock speeds
+    transform_tolerance: 0.3
+
+    # Minimum frontier size to consider exploration target (meters)
+    min_frontier_size: 0.3
+    transform_tolerance: 0.6

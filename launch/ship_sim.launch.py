@@ -1,35 +1,32 @@
 """
 Launch file for the ship simulation in Gazebo. 
 It sets up the environment, launches the Gazebo simulator with the specified world, 
-and starts the necessary ROS 2 nodes for camera processing and IMU compensation.
-
-it includes:
-- Environment variable setup for Gazebo plugins and resources
-- Cleanup of old Gazebo GUI config files to prevent issues with the simulator
-- Execution of the Gazebo simulator with the specified SDF world
-- Launching the ROS-Gazebo bridge to connect Gazebo topics to ROS 2
-- Static transforms for the cameras and IMU
-- Image processing nodes for rectifying camera images and generating disparity maps
-- IMU compensator node to adjust IMU readings based on the robot's spawn position in the world
+and starts the necessary ROS 2 nodes for camera processing, IMU compensation, SLAM, 
+and navigation based on the selected mode of operation (mapping or navigation).
 """
 
-from logging import config
+
 import os
 import sys
 import subprocess
+
 from ament_index_python.packages import get_package_share_directory, get_package_prefix
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess, AppendEnvironmentVariable, LogInfo, DeclareLaunchArgument
+from launch.actions import ExecuteProcess, AppendEnvironmentVariable, LogInfo, DeclareLaunchArgument, IncludeLaunchDescription, TimerAction
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 import xml.etree.ElementTree as ET
+
+#=======================================================================
 # Function to get the configuration parameters based on the selected mode
+#========================================================================
 def get_mode_config(mode_str):
     if mode_str == 'mapping':
         return {
             'roll_amplitude': 0.0,
             'pitch_amplitude': 0.0,
             'heave_amplitude': 0.0,
-            'imu_enable': False
+            'imu_enable': True
         }
     elif mode_str == 'navigation_no_comp':
         return {
@@ -48,7 +45,9 @@ def get_mode_config(mode_str):
     else:
         raise ValueError(f"Unknown mode: {mode_str}")
 
+#=======================================================================
 # Main function to generate the launch description
+#=======================================================================
 def generate_launch_description():
 
     mode_str = 'navigation'
@@ -106,11 +105,11 @@ def generate_launch_description():
     # based on the robot's initial position in the world
     def get_robot_spawn_from_sdf(sdf_path):
         try:
-            # Legge il file riga per riga e ignora le righe vuote iniziali
+            # Reads the file line by line and ignores initial empty lines
             with open(sdf_path, 'r') as f:
                 lines = f.readlines()
             
-            # Trova dove inizia veramente l'XML e unisce il resto
+            # Finds where the XML actually starts and joins the rest
             xml_content = ""
             for line in lines:
                 if "<?xml" in line or xml_content:
@@ -130,34 +129,49 @@ def generate_launch_description():
         return 0.0, 0.0, 0.0
     
     sx, sy, sz = get_robot_spawn_from_sdf(sdf_out) # extract the robot's spawn position from the generated SDF file to use in the IMU compensator node
-    print(f"DEBUG: Robot spawn rilevato dall'SDF -> X:{sx}, Y:{sy}, Z:{sz}")
+    print(f"DEBUG: Robot spawn detected from SDF -> X:{sx}, Y:{sy}, Z:{sz}")
 
-    # Define the ROS 2 nodes to be launched, including 
-    #  - static transforms for the cameras and IMU
-    #  - image processing nodes for rectifying camera images and generating disparity maps
-    #  - the IMU compensator node to adjust IMU readings based on the robot's spawn position
-    # - the RTAB-Map nodes for stereo odometry and SLAM, which will use the rectified camera images and compensated IMU data for localization and mapping
+    #=======================================================
+    # ROS 2 Nodes for Camera Processing and IMU Compensation
+    #=======================================================
+
+    camera_params_path = os.path.join(pkg_share, 'config', 'stereo_params.yaml') # path to the camera parameters file
 
     # Static transform from base_footprint to the left and right cameras and the IMU
     left_camera_tf = Node( 
         package='tf2_ros',
         executable='static_transform_publisher',
         name='camera_left_tf',
-        arguments=['0.07', '0.06', '0.10', '-1.570796', '0', '-1.570796', 'base_footprint', 'turtlebot3_waffle/base_link/stereo_camera_left']
+        arguments=[
+            '--x', '0.07', '--y', '0.06', '--z', '0.10',
+            '--roll', '-1.570796', '--pitch', '0', '--yaw', '-1.570796',
+            '--frame-id', 'base_footprint',
+            '--child-frame-id', 'turtlebot3_waffle/base_link/stereo_camera_left'
+        ]
     )
 
     right_camera_tf = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name='camera_right_tf',
-        arguments=['0.07', '-0.06', '0.10', '-1.570796', '0', '-1.570796', 'base_footprint', 'turtlebot3_waffle/base_link/stereo_camera_right']
+        arguments=[
+            '--x', '0.07', '--y', '-0.06', '--z', '0.10',
+            '--roll', '-1.570796', '--pitch', '0', '--yaw', '-1.570796',
+            '--frame-id', 'base_footprint',
+            '--child-frame-id', 'turtlebot3_waffle/base_link/stereo_camera_right'
+        ]
     )
 
     imu_tf = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
         name='imu_tf',
-        arguments=['-0.032', '0', '0.068', '0', '0', '0', 'base_footprint', 'imu_link']
+        arguments=[
+            '--x', '0', '--y', '0', '--z', '0',
+            '--roll', '0', '--pitch', '0', '--yaw', '0',
+            '--frame-id', 'base_footprint',
+            '--child-frame-id', 'imu_link'
+        ]
     )
 
     # Nodes for rectifying the left and right camera images using the image_proc package
@@ -231,8 +245,9 @@ def generate_launch_description():
             ('stereo/disparity', '/camera/disparity'),
         ],
         parameters=[{
+            'use_sim_time': True,
             'approximate_sync': True,
-            'queue_size': 10
+            'queue_size': 50
         }],
         output='screen'
     )
@@ -251,42 +266,35 @@ def generate_launch_description():
         }]
     )
 
-    # Parameters for the RTAB-Map nodes, which will use the rectified camera images and compensated IMU data for localization and mapping.
-    rtabmap_parameters = {
-        'frame_id': 'base_footprint',
-        'subscribe_depth': False,
-        'subscribe_rgb': False,
-        'subscribe_scan': False,
-        'subscribe_stereo': True,
-        'approx_sync': False,
-        'use_sim_time': True,
-        'wait_imu_to_init': True,
-        # Parametri di Memoria e Mapping (Stringhe!)
-        'Mem/IncrementalMemory': 'true', 
-        'Mem/InitWMWithAllNodes': 'true', 
-        'Grid/Sensor': '1', 
-        'Grid/FromDepth': 'true',
-        'RGBD/CreateOccupancyGrid': 'true', # Corretto RGBD
-        'Grid/MaxGroundHeight': '0.1',
-        'Grid/MinObstacleHeight': '2.0',
-        'Grid/RangeMax': '5.0',
-    }
+    #=================================
+    # RTAB-Map SLAM and Odometry Nodes
+    #=================================
 
-    # Node for stereo odometry using the rtabmap_odom package, which will provide odometry estimates based on the stereo camera images and IMU data. 
+    rtabmap_parameters_path = os.path.join(pkg_share, 'config', 'rtabmap_params.yaml')
+    rtabmap_odom_remappings = [
+            ('left/image_rect', '/camera/left/image_rect'),
+            ('right/image_rect', '/camera/right/image_rect'),
+            ('left/camera_info', '/camera/left/camera_info'),
+            ('right/camera_info', '/camera/right/camera_info'),
+            ('imu', '/robot/imu/compensated') # topic published by imu_compensator node
+    ]
+
+    rtabmap_slam_remappings = [
+            ('left/image_rect', '/camera/left/image_rect'),
+            ('right/image_rect', '/camera/right/image_rect'),
+            ('left/camera_info', '/camera/left/camera_info'),
+            ('right/camera_info', '/camera/right/camera_info')
+    ]
+
+    # Node for stereo odometry using the rtabmap_odom package, which will provide odometry estimates based on the stereo camera images and IMU data.
     # This node will be used in the navigation mode to provide odometry information for the robot.
     stereo_odometry_node = Node(
         package='rtabmap_odom',
         executable='stereo_odometry',
         name='stereo_odometry',
         output='screen',
-        parameters=[rtabmap_parameters],
-        remappings=[
-            ('left/image_rect', '/camera/left/image_rect'),
-            ('right/image_rect', '/camera/right/image_rect'),
-            ('left/camera_info', '/camera/left/camera_info'),
-            ('right/camera_info', '/camera/right/camera_info'),
-            ('imu', '/robot/imu/compensated') # topic published by imu_compensator node
-        ]
+        parameters=[rtabmap_parameters_path],
+        remappings=rtabmap_odom_remappings
     )
 
     # Node for RTAB-Map SLAM, which will perform simultaneous localization and mapping using the stereo camera images and IMU data.
@@ -296,21 +304,118 @@ def generate_launch_description():
         executable='rtabmap',
         name='rtabmap',
         output='screen',
-        parameters=[rtabmap_parameters],
-        remappings=[
-            ('left/image_rect', '/camera/left/image_rect'),
-            ('right/image_rect', '/camera/right/image_rect'),
-            ('left/camera_info', '/camera/left/camera_info'),
-            ('right/camera_info', '/camera/right/camera_info'),
-            ('imu', '/robot/imu/compensated')
-        ],
+        parameters=[rtabmap_parameters_path],
+        remappings=rtabmap_slam_remappings,
         arguments=['-d'] # start with an empty database
     )
-    
-    return LaunchDescription([
 
-        DeclareLaunchArgument('mode', default_value='navigation'),
-        DeclareLaunchArgument('obstacles', default_value='true'),
+
+    # Node for resetting localization after the ship stabilizes
+    # Waits for ShipMotionPlugin to stabilize joints (when robot gravity settles),
+    # then calls Nav2's /reinitialize_global_localization service
+    # This ensures clean SLAM mapping without noise from initial gravity/spawn vibrations
+    reset_localization_node = Node(
+        package='ship_gazebo',
+        executable='reset_localization.py',
+        name='reset_localization',
+        parameters=[rtabmap_parameters_path],
+        output='screen'
+    )
+
+    #==============================
+    # Nodes for Exploration and Navigation
+    #==============================
+
+    # Node for the explore_lite package, which will perform autonomous exploration of the environment using the occupancy grid generated by RTAB-Map.
+    # This node will be launched only in the mapping mode to allow the robot to explore and
+    # build a map of the environment. It will use the occupancy grid data from RTAB-Map to plan exploration paths and navigate to unexplored areas.
+    explore_lite_params_path = os.path.join(pkg_share, 'config', 'explore_lite_params.yaml')
+    explore_lite_node = Node(
+        package='explore_lite',
+        executable='explore',
+        name='explore_lite',
+        output='screen',
+        parameters=[explore_lite_params_path]
+    )
+
+    # Delay exploration startup until TF and map topics are stable.
+    delayed_explore_lite_node = TimerAction(period=2.0, actions=[explore_lite_node])
+
+
+    # Node for launching the Nav2 stack, which will provide navigation capabilities for the robot.
+    # This node will be launched in both the mapping and navigation modes, 
+    # but in the mapping mode it will be used primarily for navigation during exploration, 
+    # while in the navigation mode it will be used for navigating to specific goals based on the map built by RTAB-Map. 
+
+    nav2_params_path = os.path.join(pkg_share,'config','nav2_params.yaml') # path to the Nav2 parameters file, which will be used for navigation in the navigation mode
+    nav2_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource([os.path.join(get_package_share_directory('nav2_bringup'),
+        'launch', 'navigation_launch.py')]),
+        launch_arguments={
+            'use_sim_time': 'true',
+            'params_file': nav2_params_path,
+            'autostart': 'true',
+        }.items()
+    )
+
+    # Delay Nav2 so bridge + odom TF are available before activation.
+    delayed_nav2_launch = TimerAction(period=4.0, actions=[nav2_launch])
+
+    #=================================
+    # Nodes for Map Saving and Loading
+    #=================================
+
+    # Map saver service - saves the occupancy grid to a file
+    # Used in mapping mode to persist the generated map
+    map_save_dir = os.path.expanduser('~/.local/share/ship_gazebo/maps')
+    os.makedirs(map_save_dir, exist_ok=True)
+
+    map_saver_server = Node(
+        package='nav2_map_server',
+        executable='map_saver_server',
+        name='map_saver_server',
+        output='screen',
+        parameters=[{
+            'use_sim_time': True,
+            'save_map_timeout': 5.0
+        }]
+    )
+
+    # Map server - loads a pre-saved occupancy grid map
+    # Used in navigation mode to provide the static map for localization and planning
+    map_save_dir = os.path.expanduser('~/.local/share/ship_gazebo/maps')
+    map_yaml_file = os.path.join(map_save_dir, 'ship_gazebo.yaml')
+
+    map_server_node = Node(
+        package='nav2_map_server',
+        executable='map_server',
+        name='map_server',
+        output='screen',
+        parameters=[{
+            'use_sim_time': True,
+            'yaml_filename': map_yaml_file
+        }]
+    )
+
+    # Rviz node for visualizing the robot, the map, and the navigation process. 
+    rviz_config_path = os.path.join(get_package_share_directory('nav2_bringup'),'rviz','nav2_default_view.rviz')
+    rviz_cmd = Node(
+        package='rviz2',
+        executable='rviz2',
+        arguments=['-d', rviz_config_path],
+        parameters=[{
+            'use_sim_time': True
+        }],
+        output='screen'
+    )
+
+    #=============================
+    # Nodes List
+    #=============================
+
+    nodes_list = [
+        DeclareLaunchArgument('mode', default_value='navigation',description='Select the mode of operation: mapping, navigation_no_comp, navigation'),
+        DeclareLaunchArgument('obstacles', default_value='true',description='Enable or disable obstacles in the simulation'),
 
         AppendEnvironmentVariable(
             name='GZ_SIM_SYSTEM_PLUGIN_PATH',
@@ -323,7 +428,9 @@ def generate_launch_description():
         ),
         
         ExecuteProcess(
-            cmd=['gz', 'sim','-r', sdf_out],
+            cmd=[
+                'gz', 'sim','-r', sdf_out
+            ],
             output='screen'
         ),
 
@@ -338,12 +445,8 @@ def generate_launch_description():
 
         ExecuteProcess(
             cmd=[
-                'ros2', 'run', 'rqt_image_view', 'rqt_image_view'],
-            output='screen' 
-        ),
-        ExecuteProcess(
-            cmd=[
-                'ros2', 'run', 'rqt_image_view', 'rqt_image_view'],
+                'ros2', 'run', 'rqt_image_view', 'rqt_image_view'
+            ],
             output='screen' 
         ),
         left_camera_tf,
@@ -355,6 +458,23 @@ def generate_launch_description():
         stereo_view,
         compensate_imu,
         stereo_odometry_node,
-        rtabmap_slam_node
-    ])
+        rtabmap_slam_node,
+        reset_localization_node,
+        rviz_cmd
+    ]
 
+    # Conditionally add nodes for exploration and navigation based on the selected mode
+
+    if(mode_str == 'mapping'):
+        nodes_list.append(delayed_explore_lite_node)
+        nodes_list.append(delayed_nav2_launch)
+        nodes_list.append(map_saver_server)
+    elif(mode_str == 'navigation' or mode_str == 'navigation_no_comp'):
+        nodes_list.append(delayed_nav2_launch)
+        nodes_list.append(map_server_node)
+
+    #=============================
+    # Launch Description
+    #=============================
+
+    return LaunchDescription(nodes_list)

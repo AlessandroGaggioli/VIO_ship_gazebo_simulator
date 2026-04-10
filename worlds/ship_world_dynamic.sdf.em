@@ -9,24 +9,21 @@
 #==========================================================
 
 ship_size = (141.0, 20.16, 26.7)  # width, length, height [m]
-#ship_size = (150.0, 20.0, 10.0)  # width, length, height [m]
 CoG_pose = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
-ship_mass = 1000.0               # kg
+ship_mass = 1000.0  
 ship_inertia = [
     [1000.0, 0.0,     0.0    ],
     [0.0,     1000.0, 0.0    ],
     [0.0,     0.0,     1000.0]
-]  # kg·m²
+] 
 
 #==========================================================
 # ----- link intermedi (heave, roll, pitch) ---------------
 #==========================================================
 
-# Masse sufficientemente grandi da evitare instabilità numerica in DART,
-# ma trascurabili rispetto alla massa principale di 6000 kg.
-intermediate_mass = 10 # kg
-intermediate_ixx  = 10  # kg·m²
+intermediate_mass = 10 
+intermediate_ixx  = 10  
 intermediate_iyy  = 10
 intermediate_izz  = 10
 
@@ -43,12 +40,12 @@ bias = tuple(d-c for d,c in zip(corridor_pose,center_stl)) # bias = (38.583, -5.
 corridor_pose = tuple(a + b for a, b in zip(center_stl, bias)) 
 floor_distance = 0.38
 
-corridor_mass =10  # kg
+corridor_mass =10 
 corridor_inertia = [
     [10, 0.0,   0.0  ],
     [0.0,   10, 0.0  ],
     [0.0,   0.0,   10]
-]  # kg·m²
+]  
 
 # attrito alto per impedire scivolamento del robot durante le oscillazione
 mu  = 1.2
@@ -80,14 +77,14 @@ cw_pose_str = "{} {} {} 0 0 0".format(-corridor_pose[0], -corridor_pose[1], -cor
 # --------- obtacles --------------------------------------
 #==========================================================
 
-ob1_size = (0.2,0.2,0.2) #cube 
+ob1_size = (0.05,0.05,0.05) #cube 
 ob_x = - 0.75
 ob_y = - 0.30
 ob_z = (ob1_size[2] / 2.0) - floor_distance
 
 ob1_pose = (ob_x,ob_y,ob_z,0,0,0) 
 
-ob2_size = (0.2,0.2) #cylinder
+ob2_size = (0.05,0.05) #cylinder
 ob_x = - 1.20
 ob_y = 0.35
 ob_z = (ob2_size[1] / 2.0) - floor_distance
@@ -114,8 +111,8 @@ pitch_phase     = 0.0
 heave_frequency = 0.0
 heave_phase     = 0.0
 
-roll_bound  = 0.5   # rad
-pitch_bound = 0.2   # rad
+roll_bound  = 0.31   # rad
+pitch_bound = 0.0   # rad
 heave_bound = 0.0   # m
 
 revolute_damping  = 100.0
@@ -165,7 +162,6 @@ imu_bias_gyro   = 0.0
 
         <!-- 
         Modello nave: 
-
         world -> heave_joint (z) -> roll_joint(y) -> pitch_joint(x) -> CoG -> corridor
         -->
 
@@ -294,13 +290,6 @@ imu_bias_gyro   = 0.0
                         <izz>@(ship_inertia[2][2])</izz>
                     </inertia>
                 </inertial>
-                
-                <!--
-                <velocity_decay>
-                    <linear>0.05</linear>
-                    <angular>0.05</angular>
-                </velocity_decay>
-                -->
 
                 <visual name="ship_hull">
                     <geometry>
@@ -385,14 +374,6 @@ imu_bias_gyro   = 0.0
                     <surface>
                         <contact>
                             <collide_bitmask>0xffff</collide_bitmask>
-                            <!--
-                            <ode>
-                                <kp>1000000</kp>
-                                <kd>100.0</kd>
-                                <max_vel>0.01</max_vel> 
-                                <min_depth>0.001</min_depth> 
-                            </ode>
-                            -->
                         </contact>
                         <friction>
                             <ode>

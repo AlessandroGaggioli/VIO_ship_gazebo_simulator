@@ -1,0 +1,39 @@
+# Stereo Camera paremeters
+# These parameters are used for the stereo camera processing nodes
+
+#============================================
+# Rectification Parameters
+#============================================
+rectify_left:
+  ros__parameters:
+    use_sim_time: True
+    approximate_sync: True
+    queue_size: 50
+
+rectify_right:
+  ros__parameters:
+    use_sim_time: True
+    approximate_sync: True
+    queue_size: 50
+
+#============================================
+# Disparity Map Parameters
+#============================================
+disparity_map:
+  ros__parameters:
+    use_sim_time: True
+    approximate_sync: True
+    queue_size: 20
+    stereo_algorithm: 1 # 0 = BM, 1 = SGBM (more accurate)
+    correlation_window_size: 15
+    min_disparity: 0
+    num_disparities: 64 # multiple of 16
+
+#============================================
+# Stereo View Parameters
+#============================================
+stereo_view_node:
+  ros__parameters:
+    use_sim_time: True
+    approximate_sync: True
+    queue_size: 50 
