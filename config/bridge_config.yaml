@@ -25,9 +25,17 @@
   direction: GZ_TO_ROS
   lazy: false 
 
-  # internal Camera gazebo
-- ros_topic_name: /camera/int_corridor_camera/image
-  gz_topic_name: /world/ship_world/model/ship_corridor_dynamic/link/int_corridor_camera_link/sensor/corridor_camera/image
+  # first internal Camera gazebo
+- ros_topic_name: /camera/first_int_corridor_camera/image
+  gz_topic_name: /world/ship_world/model/ship_corridor_dynamic/link/first_int_corridor_camera_link/sensor/first_int_corridor_camera/image
+  ros_type_name: sensor_msgs/msg/Image
+  gz_type_name: gz.msgs.Image
+  direction: GZ_TO_ROS
+  lazy: false
+
+  # second internal Camera gazebo
+- ros_topic_name: /camera/second_int_corridor_camera/image
+  gz_topic_name: /world/ship_world/model/ship_corridor_dynamic/link/second_int_corridor_camera_link/sensor/second_int_corridor_camera/image
   ros_type_name: sensor_msgs/msg/Image
   gz_type_name: gz.msgs.Image
   direction: GZ_TO_ROS
@@ -35,7 +43,7 @@
 
   # external camera gazebo
 - ros_topic_name: /camera/ext_corridor_camera/image
-  gz_topic_name: /world/ship_world/model/ship_corridor_dynamic/link/ext_corridor_camera_link/sensor/corridor_camera/image
+  gz_topic_name: /world/ship_world/model/ship_corridor_dynamic/link/ext_corridor_camera_link/sensor/ext_corridor_camera/image
   ros_type_name: sensor_msgs/msg/Image
   gz_type_name: gz.msgs.Image
   direction: GZ_TO_ROS

@@ -31,14 +31,21 @@ intermediate_izz  = 10
 # ----- corridor parameters -------------------------------
 #==========================================================
 
-corridor_size = (20.579, 6.305, 3.677)
+#corridor_size = (20.579, 6.305, 3.677) #one corridor 
+corridor_size = (61.737, 8.803, 3.300) #three corridor (large)
+
 scale = tuple(a / b for a, b in zip(corridor_size, ship_size))
-scale = scale[:2] + (scale[2] * 3,)
-corridor_pose = (40.0, 5.0, 2.50, 0.0, 0.0, 0.0)
-center_stl = (1.417,10.289,1.361,0.0,0.0,0.0)
-bias = tuple(d-c for d,c in zip(corridor_pose,center_stl)) # bias = (38.583, -5.289, 1.139)
-corridor_pose = tuple(a + b for a, b in zip(center_stl, bias)) 
-floor_distance = 0.38
+scale = (scale[0], scale[1] * 0.8, scale[2] * 3) + (0.0,0.0,0.0)
+
+target_center = (40.0, 5.0, 2.50, 0.0, 0.0, 0.0)
+
+#stl_center = (-0.690,0.078,0.445,0.0,0.0,0.0) #one corridor center stl 
+stl_center = (-0.036, -0.003, -0.255, 0.0, 0.0, 0.0) #three corridor center stl
+
+stl_center_scaled = tuple(a * b for a, b in zip(stl_center, scale))
+
+corridor_pose = tuple(a - b for a, b in zip(target_center, stl_center_scaled)) 
+floor_distance = (1.7996-0.005) * scale[2]
 
 corridor_mass =10 
 corridor_inertia = [
@@ -58,12 +65,12 @@ mu2 = 1.2
 robot_mass = 1.37 
 robot_size = (0.354, 0.178, 0.144)
 
-robot_x     = corridor_pose[0] - (corridor_size[0] * scale[0] / 2.0) + (robot_size[0] / 2.0)
-robot_y     = corridor_pose[1] 
-robot_z     = corridor_pose[2] - (corridor_size[2] * scale[2] / 2.0) + floor_distance 
-robot_roll  = corridor_pose[3]
-robot_pitch = corridor_pose[4]
-robot_yaw   = corridor_pose[5] 
+robot_x     = - (corridor_size[0] * scale[0] / 2.0) + (robot_size[0] / 2.0) + 1.7 
+robot_y     = 0.0 
+robot_z     = - floor_distance + 0.01
+robot_roll  = 0.0
+robot_pitch = 0.0
+robot_yaw   = 0.0
 robot_pose  = (robot_x, robot_y, robot_z, robot_roll, robot_pitch, robot_yaw)
 
 #===========================================================
@@ -71,23 +78,23 @@ robot_pose  = (robot_x, robot_y, robot_z, robot_roll, robot_pitch, robot_yaw)
 #===========================================================
 #total mass (corridor+robot)
 total_payload_mass = corridor_mass + 1.37 
-cw_pose_str = "{} {} {} 0 0 0".format(-corridor_pose[0], -corridor_pose[1], -corridor_pose[2])
+cw_pose_str = "{} {} {} 0 0 0".format(-target_center[0], -target_center[1], -target_center[2])
 
 #==========================================================
 # --------- obtacles --------------------------------------
 #==========================================================
 
-ob1_size = (0.05,0.05,0.05) #cube 
-ob_x = - 0.75
+ob1_size = (0.1,0.1,0.1) #cube 
+ob_x = -(corridor_size[0] * scale[0] / 2.0) + 2.75
 ob_y = - 0.30
-ob_z = (ob1_size[2] / 2.0) - floor_distance
+ob_z = -floor_distance + ob1_size[2]/2.0
 
 ob1_pose = (ob_x,ob_y,ob_z,0,0,0) 
 
-ob2_size = (0.05,0.05) #cylinder
-ob_x = - 1.20
+ob2_size = (0.1,0.1) #cylinder
+ob_x = -(corridor_size[0] * scale[0] / 2.0) + 2.20
 ob_y = 0.35
-ob_z = (ob2_size[1] / 2.0) - floor_distance
+ob_z = -floor_distance + ob2_size[1]/2.0
 
 ob2_pose = (ob_x,ob_y,ob_z,0,0,0)
 
@@ -132,6 +139,43 @@ imu_noise_accel = 0.00186  # m/s^2
 imu_noise_gyro  = 0.00010  # rad/s
 imu_bias_accel  = 0.0
 imu_bias_gyro   = 0.0
+
+#===============================================================
+# ----- first internal camera parameters ------------------------
+#================================================================
+int_camera_x = -(corridor_size[0] * scale[0] / 2.0) +0.18
+int_camera_y = 0
+int_camera_z = 0.5
+int_camera_roll = 0
+int_camera_pitch = 0.3
+int_camera_yaw = 0
+
+first_int_camera_pose = (int_camera_x, int_camera_y, int_camera_z, int_camera_roll, int_camera_pitch, int_camera_yaw)
+
+#===============================================================
+# ----- second internal camera parameters ------------------------
+#================================================================
+int_camera_x = 0
+int_camera_y = 0
+int_camera_z = 0.5
+int_camera_roll = 0
+int_camera_pitch = 0.2
+int_camera_yaw = 0
+
+second_int_camera_pose = (int_camera_x, int_camera_y, int_camera_z, int_camera_roll, int_camera_pitch, int_camera_yaw)
+
+#==========================================================
+# ----- external camera parameters ------------------------
+#==========================================================
+ext_camera_x = 0 
+ext_camera_y = 0
+ext_camera_z = 7
+ext_camera_roll = 0
+ext_camera_pitch = 1.5708
+ext_camera_yaw = 0
+
+ext_camera_pose = (ext_camera_x, ext_camera_y, ext_camera_z, ext_camera_roll, ext_camera_pitch, ext_camera_yaw)
+
 }@
 <sdf version="1.8">
 
@@ -358,7 +402,7 @@ imu_bias_gyro   = 0.0
                 <visual name="corridor_visual">
                     <geometry>
                         <mesh>
-                            <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_corridor.dae</uri>
+                            <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_large_corridor.dae</uri>
                             <scale>@(scale[0]) @(scale[1]) @(scale[2])</scale>
                         </mesh>
                     </geometry>
@@ -367,7 +411,7 @@ imu_bias_gyro   = 0.0
                 <collision name="corridor_collision">
                     <geometry>
                         <mesh>
-                            <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_corridor.stl</uri>
+                            <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_large_corridor.stl</uri>
                             <scale>@(scale[0]) @(scale[1]) @(scale[2])</scale>
                         </mesh>
                     </geometry>
@@ -384,6 +428,8 @@ imu_bias_gyro   = 0.0
                     </surface>
                 </collision>
             </link>
+
+            
 
             <joint name="corridor_joint" type="fixed">
                 <parent>CoG_link</parent>
@@ -417,46 +463,14 @@ imu_bias_gyro   = 0.0
             </joint>
 
             <!--===============================-->
-            <!--======== camera interna al corridoio  ============-->
+            <!--====first internal camera  ============-->
             <!--===============================-->
 
-            <link name="int_corridor_camera_link">
-                <pose relative_to='corridor_link'>0 0 0 0 0 0</pose>
+            <link name="first_int_corridor_camera_link">
+                <pose relative_to='corridor_link'>@(first_int_camera_pose[0]) @(first_int_camera_pose[1]) @(first_int_camera_pose[2]) @(first_int_camera_pose[3]) @(first_int_camera_pose[4]) @(first_int_camera_pose[5])</pose>
                 <gravity>false</gravity>
 
-                <sensor name="corridor_camera" type="camera">
-                    <pose>-3 0 0 0 0 0</pose>
-                    <always_on>true</always_on>
-                    <update_rate>30</update_rate>
-                    <camera>
-                        <horizontal_fov>1.047</horizontal_fov>
-                        <image>
-                            <width>1280</width>
-                            <height>720</height>
-                            <format>R8G8B8</format>
-                        </image>
-                        <clip>
-                            <near>0.1</near>
-                            <far>100</far>
-                        </clip>
-                    </camera>
-                </sensor>
-            </link>
-
-            <joint name="int_corridor_camera_joint" type="fixed">
-                <parent>corridor_link</parent>
-                <child>int_corridor_camera_link</child>
-            </joint>
-
-            <!--===============================-->
-            <!--camera esterna al corridoio -->
-            <!--===============================-->
-
-            <link name="ext_corridor_camera_link">
-                <pose relative_to='corridor_link'>-15 0 0 0 0 0</pose>
-                <gravity>false</gravity>
-
-                <sensor name="corridor_camera" type="camera">
+                <sensor name="first_int_corridor_camera" type="camera">
                     <pose>0 0 0 0 0 0</pose>
                     <always_on>true</always_on>
                     <update_rate>30</update_rate>
@@ -475,8 +489,72 @@ imu_bias_gyro   = 0.0
                 </sensor>
             </link>
 
+            <joint name="first_int_corridor_camera_joint" type="fixed">
+                <parent>corridor_link</parent>
+                <child>first_int_corridor_camera_link</child>
+            </joint>
+
+            <!--===============================-->
+            <!--====second internal camera  ============-->
+            <!--===============================-->
+
+            <link name="second_int_corridor_camera_link">
+                <pose relative_to='corridor_link'>@(second_int_camera_pose[0]) @(second_int_camera_pose[1]) @(second_int_camera_pose[2]) @(second_int_camera_pose[3]) @(second_int_camera_pose[4]) @(second_int_camera_pose[5])</pose>
+                <gravity>false</gravity>
+
+                <sensor name="second_int_corridor_camera" type="camera">
+                    <pose>0 0 0 0 0 0</pose>
+                    <always_on>true</always_on>
+                    <update_rate>30</update_rate>
+                    <camera>
+                        <horizontal_fov>1.047</horizontal_fov>
+                        <image>
+                            <width>1280</width>
+                            <height>720</height>
+                            <format>R8G8B8</format>
+                        </image>
+                        <clip>
+                            <near>0.1</near>
+                            <far>100</far>
+                        </clip>
+                    </camera>
+                </sensor>
+            </link>
+
+            <joint name="second_int_corridor_camera_joint" type="fixed">
+                <parent>corridor_link</parent>
+                <child>second_int_corridor_camera_link</child>
+            </joint>
+
+            <!--===============================-->
+            <!-- === external camera ===== -->
+            <!--===============================-->
+
+            <link name="ext_corridor_camera_link">
+                <pose relative_to='corridor_link'>@(ext_camera_pose[0]) @(ext_camera_pose[1]) @(ext_camera_pose[2]) @(ext_camera_pose[3]) @(ext_camera_pose[4]) @(ext_camera_pose[5])</pose>
+                <gravity>false</gravity>
+
+                <sensor name="ext_corridor_camera" type="camera">
+                    <pose>0 0 0 0 0 0</pose>
+                    <always_on>true</always_on>
+                    <update_rate>30</update_rate>
+                    <camera>
+                        <horizontal_fov>2.0</horizontal_fov>
+                        <image>
+                            <width>1280</width>
+                            <height>720</height>
+                            <format>R8G8B8</format>
+                        </image>
+                        <clip>
+                            <near>0.1</near>
+                            <far>100</far>
+                        </clip>
+                    </camera>
+                </sensor>
+            </link>
+
             <joint name="ext_corridor_camera_joint" type="fixed">
-                <parent>world_base_link</parent>
+                <parent>corridor_link</parent>
                 <child>ext_corridor_camera_link</child>
             </joint>
 
@@ -567,19 +645,21 @@ imu_bias_gyro   = 0.0
             </joint>
             <!--===============================-->
 
+            <!--===============================-->
+            <!-- TURTLEBOT -->
+            <!--===============================-->
+
+            <include>
+                <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/turtlebot3_stereo</uri>
+                <name>turtlebot3_waffle</name>
+                <pose relative_to='corridor_link'>
+                    @(robot_pose[0]) @(robot_pose[1]) @(robot_pose[2]) @(robot_pose[3]) @(robot_pose[4]) @(robot_pose[5])
+                </pose>
+            </include>
+
         </model>
         <!--===============================-->
         <!--===============================-->
-
-        <!--===============================-->
-        <!-- TURTLEBOT -->
-        <!--===============================-->
-
-        <include>
-            <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/turtlebot3_stereo</uri>
-            <name>turtlebot3_waffle</name>
-            <pose>@(robot_pose[0]) @(robot_pose[1]) @(robot_pose[2]) @(robot_pose[3]) @(robot_pose[4]) @(robot_pose[5])</pose>
-        </include>
 
         <!--===============================-->
         <!-- Plugin-->

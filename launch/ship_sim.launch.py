@@ -53,6 +53,12 @@ def generate_launch_description():
     mode_str = 'navigation'
     enable_obstacles = True
 
+    # Ensure there is a single simulation/clock source.
+    # Stale gz/bridge processes from previous runs can cause /clock jumps,
+    # which then break odometry, RTAB-Map and Nav2 behavior.
+    subprocess.run(['pkill', '-f', '^gz sim'], check=False)
+    subprocess.run(['pkill', '-f', 'ros_gz_bridge.*parameter_bridge'], check=False)
+
     # Parse command line arguments to get the mode and obstacles settings
     for arg in sys.argv:
         if 'mode:=' in arg:
@@ -146,7 +152,7 @@ def generate_launch_description():
             '--x', '0.07', '--y', '0.06', '--z', '0.10',
             '--roll', '-1.570796', '--pitch', '0', '--yaw', '-1.570796',
             '--frame-id', 'base_footprint',
-            '--child-frame-id', 'turtlebot3_waffle/base_link/stereo_camera_left'
+            '--child-frame-id', 'ship_corridor_dynamic/turtlebot3_waffle/base_link/stereo_camera_left'
         ]
     )
 
@@ -158,7 +164,7 @@ def generate_launch_description():
             '--x', '0.07', '--y', '-0.06', '--z', '0.10',
             '--roll', '-1.570796', '--pitch', '0', '--yaw', '-1.570796',
             '--frame-id', 'base_footprint',
-            '--child-frame-id', 'turtlebot3_waffle/base_link/stereo_camera_right'
+            '--child-frame-id', 'ship_corridor_dynamic/turtlebot3_waffle/base_link/stereo_camera_right'
         ]
     )
 
@@ -184,11 +190,7 @@ def generate_launch_description():
             ('camera_info','/camera/left/camera_info'),
             ('image_rect','/camera/left/image_rect') # rectified image topic
         ],
-        parameters=[{
-            'approximate_sync':True,
-            'queue_size':50,
-            'use_sim_time':True
-        }],
+        parameters=[camera_params_path],
         output='screen'
     )
 
@@ -201,11 +203,7 @@ def generate_launch_description():
             ('camera_info','/camera/right/camera_info'),
             ('image_rect','/camera/right/image_rect')
         ],
-        parameters=[{
-            'approximate_sync':True,
-            'queue_size': 50,
-            'use_sim_time': True
-        }],
+        parameters=[camera_params_path],
         output='screen'
     )
 
@@ -221,14 +219,7 @@ def generate_launch_description():
             ('right/camera_info','/camera/right/camera_info'),
             ('disparity','/camera/disparity')
         ],
-        parameters=[{
-            'approximate_sync':True,
-            'queue_size':20,
-            'stereo_algorithm': 1, # 0 = BM, 1 = SGBM (more accurate)
-            'correlation_window_size': 15, 
-            'min_disparity': 0,
-            'num_disparities': 64 # multiple of 16
-        }],
+        parameters=[camera_params_path],
         on_exit=LogInfo(msg='Disparity node closed.'),
         respawn=False,
         output='screen'
@@ -244,11 +235,7 @@ def generate_launch_description():
             ('stereo/right/image', '/camera/right/image_rect'),
             ('stereo/disparity', '/camera/disparity'),
         ],
-        parameters=[{
-            'use_sim_time': True,
-            'approximate_sync': True,
-            'queue_size': 50
-        }],
+        parameters=[camera_params_path],
         output='screen'
     )
 
@@ -338,8 +325,8 @@ def generate_launch_description():
         parameters=[explore_lite_params_path]
     )
 
-    # Delay exploration startup until TF and map topics are stable.
-    delayed_explore_lite_node = TimerAction(period=2.0, actions=[explore_lite_node])
+    # Start exploration early so the first map publication is not missed.
+    delayed_explore_lite_node = TimerAction(period=10.0, actions=[explore_lite_node])
 
 
     # Node for launching the Nav2 stack, which will provide navigation capabilities for the robot.
@@ -454,8 +441,6 @@ def generate_launch_description():
         imu_tf,
         left_camera_rect,
         right_camera_rect,
-        disparity_map,
-        stereo_view,
         compensate_imu,
         stereo_odometry_node,
         rtabmap_slam_node,

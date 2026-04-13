@@ -26,8 +26,8 @@ disparity_map:
     queue_size: 20
     stereo_algorithm: 1 # 0 = BM, 1 = SGBM (more accurate)
     correlation_window_size: 15
-    min_disparity: 0
-    num_disparities: 64 # multiple of 16
+    min_disparity: 2
+    num_disparities: 48 # multiple of 16
 
 #============================================
 # Stereo View Parameters
