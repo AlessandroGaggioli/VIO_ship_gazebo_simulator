@@ -1,0 +1,128 @@
+ekf_filter_node:
+  ros__parameters:
+    use_sim_time: true
+    frequency: 100.0
+    predict_to_current_time: true
+    transform_time_offset: 0.30
+    sensor_timeout: 0.3
+    two_d_mode: true
+    publish_tf: true # set to true to pub the transform between the odom and base_link frames
+                     # required for stereo_odometry node as a prior_guess (guess_frame_id)s
+
+    map_frame: map 
+    odom_frame: odom_ekf 
+    base_link_frame: base_footprint  #the frame of the robot base, which is the output of the filter
+    world_frame: odom_ekf #the filter works in the local odometry frame
+
+    #The order of the boolean values are 
+    #(X,Y,Z,
+    #roll,pitch,yaw,
+    #X_dot,Y_dot,Z_dot,
+    #roll_dot,pitch_dot,yaw_dot,
+    #X_ddot,Y_ddot,Z_ddot).
+
+    #The turtlebot3 calculates the odometry based on the wheel encoders
+    #it provides: position (X,Y) and orientation (yaw)
+    #The EKF works when every measure is indipendent 
+    #in the turtlebot the wheel encoders measures the linear velocity (X_dot) and the angular_velocity(yaw_dot)
+    #the position is instead derived integrating the velocity
+    #if we set X,Y and yaw to true, we are telling the EKF that these informations are provided by indipendent sensors, but it's not true!
+    #this could bring to information double counting and a worse covariance values
+
+    # So we set to true only the velocity measures (X_dot, Y_dot and yaw_dot) 
+    #The z axis is set to false because we set two_d_mode to true, so the robot is not supposed to move in the z direction 
+
+
+    # Wheel odometry from Gazebo bridge.
+    odom0: /robot/odom
+    odom0_config: [
+      false,  false,  false, # X, Y, Z
+      false, false, false, # roll, pitch, yaw
+      true,  true,  false, # X_dot, Y_dot, Z_dot
+      false, false, true, # roll_dot, pitch_dot, yaw_dot
+      false, false, false # X_ddot, Y_ddot, Z_ddot
+    ]
+    odom0_queue_size: 20
+    odom0_differential: false
+    odom0_relative: false
+
+    # 
+
+    # Compensated IMU used for orientation and angular rates.
+    imu0: /robot/imu/compensated
+    imu0_config: [
+      false, false, false, # X, Y, Z
+      false,  false,  true, # roll, pitch, yaw
+      false, false, false, # X_dot, Y_dot, Z_dot
+      false,  false,  true, # roll_dot, pitch_dot, yaw_dot
+      false, false, false # X_ddot, Y_ddot, Z_ddot
+    ]
+    imu0_queue_size: 50 
+    imu0_differential: false
+    imu0_relative: false 
+    imu0_remove_gravitational_acceleration: false #assumes that the IMU data is not compensated from gravity.
+
+    # 15x15 process covariance matrix 
+    # State order: x y z roll pitch yaw x_dot y_dot z_dot roll_dot pitch_dot yaw_dot x_ddot y_ddot z_ddot
+    
+    #Starting with a diagonal matrix (assuming no correlation between the states) 
+    #
+    
+    process_noise_covariance: [ #Q matrix 
+    #-- high value means we trust less the model prediction 
+    #-- low value means we trust less the sensors
+    # x,y = 0.05 robot is planar but there's noise (damping, slippage, etc)
+    # yaw = 0.03 lower than x,y 
+    # x_dot, y_dot = 0.1 we expect more noise in the velocity measurements
+    # z, roll, pitch, z_dot, roll_dot, pitch_dot = 1.0 we are in 2d mode, so this states are not used
+    # x_ddot, y_ddot =0.5 ,  z_ddot = 1.0 Imu accelerations are noisy [maybe need to be lower]
+      0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.05, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.03, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.05, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0
+    ]
+
+    # 15x15 initial estimate covariance matrix 
+    initial_estimate_covariance: [ #P_zero matrix 
+    #--uncertainty of the initial state estimate, higher values mean we trust less the initial estimate
+      1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 100.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 100.0, 0.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 10.0, 0.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 10.0, 0.0,
+      0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 100.0
+    ]
+
+    #Observe /odometry/filtered topic
+    # if yaw is oscillating, raise process noise on yaw and yaw_dot
+    # if yaw is low to follow the real yaw, lower process noise on yaw and yaw_dot
+    #moves the robot on straight line and curve line
+    # if x_dot and y_dot are oscillating, raise process noise on x_dot and y_dot
+    # if x_dot and y_dot are low to follow the real velocity, lower process noise on x_dot and y_dot
+
+    #verify that roll and pitch stays close to zero
+
+    #if true, the process noise covariance will be adjusted dynamically based on the innovation of the filter. 
+    # if we see less drift when the robot is stopped and reactivity in acceleration: true
+    # if the noise grow too much during the acceleration, set to false and tune static Q. 
+    dynamic_process_noise_covariance: true 

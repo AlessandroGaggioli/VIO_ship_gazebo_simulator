@@ -210,7 +210,7 @@
             <!--===============================-->
 
             <link name="corridor_link"> 
-                <pose relative_to='CoG_link'>40.0 5.0 2.5 0.0 0.0 0.0</pose>
+                <pose relative_to='CoG_link'>40.01576263829787 5.001047976190476 2.5945505617977527 0.0 0.0 0.0</pose>
                 <gravity>false</gravity>
                 <inertial>
                     <mass>10</mass>
@@ -224,8 +224,8 @@
                 <visual name="corridor_visual">
                     <geometry>
                         <mesh>
-                            <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_corridor.dae</uri>
-                            <scale>0.14595035460992908 0.31274801587301587 0.41314606741573034</scale>
+                            <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_color/ship_large_corridor_colored_chess.dae</uri>
+                            <scale>0.4378510638297872 0.34932539682539687 0.3707865168539326</scale>
                         </mesh>
                     </geometry>
                 </visual>
@@ -233,8 +233,8 @@
                 <collision name="corridor_collision">
                     <geometry>
                         <mesh>
-                            <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_corridor.stl</uri>
-                            <scale>0.14595035460992908 0.31274801587301587 0.41314606741573034</scale>
+                            <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_large_corridor.stl</uri>
+                            <scale>0.4378510638297872 0.34932539682539687 0.3707865168539326</scale>
                         </mesh>
                     </geometry>
                     <surface>
@@ -250,6 +250,8 @@
                     </surface>
                 </collision>
             </link>
+
+            
 
             <joint name="corridor_joint" type="fixed">
                 <parent>CoG_link</parent>
@@ -282,47 +284,17 @@
                 <child>counterweight_link</child>
             </joint>
 
-            <!--===============================-->
-            <!--======== camera interna al corridoio  ============-->
-            <!--===============================-->
+            <!--==========================================-->
+            <!-- CAMERAS -->
+            <!--==========================================-->
 
-            <link name="int_corridor_camera_link">
-                <pose relative_to='corridor_link'>0 0 0 0 0 0</pose>
+                        <link name="first_int_corridor_camera_link">
+                <pose relative_to='corridor_link'>
+                    -13.335805563829787 0 0.5
+                    0 0.3 0
+                </pose>
                 <gravity>false</gravity>
-
-                <sensor name="corridor_camera" type="camera">
-                    <pose>-3 0 0 0 0 0</pose>
-                    <always_on>true</always_on>
-                    <update_rate>30</update_rate>
-                    <camera>
-                        <horizontal_fov>1.047</horizontal_fov>
-                        <image>
-                            <width>1280</width>
-                            <height>720</height>
-                            <format>R8G8B8</format>
-                        </image>
-                        <clip>
-                            <near>0.1</near>
-                            <far>100</far>
-                        </clip>
-                    </camera>
-                </sensor>
-            </link>
-
-            <joint name="int_corridor_camera_joint" type="fixed">
-                <parent>corridor_link</parent>
-                <child>int_corridor_camera_link</child>
-            </joint>
-
-            <!--===============================-->
-            <!--camera esterna al corridoio -->
-            <!--===============================-->
-
-            <link name="ext_corridor_camera_link">
-                <pose relative_to='corridor_link'>-15 0 0 0 0 0</pose>
-                <gravity>false</gravity>
-
-                <sensor name="corridor_camera" type="camera">
+                <sensor name="first_int_corridor_camera" type="camera">
                     <pose>0 0 0 0 0 0</pose>
                     <always_on>true</always_on>
                     <update_rate>30</update_rate>
@@ -333,19 +305,65 @@
                             <height>720</height>
                             <format>R8G8B8</format>
                         </image>
-                        <clip>
-                            <near>0.1</near>
-                            <far>100</far>
-                        </clip>
+                        <clip><near>0.1</near><far>100</far></clip>
                     </camera>
                 </sensor>
             </link>
-
+            <joint name="first_int_corridor_camera_joint" type="fixed">
+                <parent>corridor_link</parent>
+                <child>first_int_corridor_camera_link</child>
+            </joint>
+                        <link name="second_int_corridor_camera_link">
+                <pose relative_to='corridor_link'>
+                    0.2 0 0.5
+                    0 0.2 0
+                </pose>
+                <gravity>false</gravity>
+                <sensor name="second_int_corridor_camera" type="camera">
+                    <pose>0 0 0 0 0 0</pose>
+                    <always_on>true</always_on>
+                    <update_rate>30</update_rate>
+                    <camera>
+                        <horizontal_fov>1.047</horizontal_fov>
+                        <image>
+                            <width>1280</width>
+                            <height>720</height>
+                            <format>R8G8B8</format>
+                        </image>
+                        <clip><near>0.1</near><far>100</far></clip>
+                    </camera>
+                </sensor>
+            </link>
+            <joint name="second_int_corridor_camera_joint" type="fixed">
+                <parent>corridor_link</parent>
+                <child>second_int_corridor_camera_link</child>
+            </joint>
+                        <link name="ext_corridor_camera_link">
+                <pose relative_to='corridor_link'>
+                    0 0 7
+                    0 1.5708 0
+                </pose>
+                <gravity>false</gravity>
+                <sensor name="ext_corridor_camera" type="camera">
+                    <pose>0 0 0 0 0 0</pose>
+                    <always_on>true</always_on>
+                    <update_rate>30</update_rate>
+                    <camera>
+                        <horizontal_fov>2.0</horizontal_fov>
+                        <image>
+                            <width>1280</width>
+                            <height>720</height>
+                            <format>R8G8B8</format>
+                        </image>
+                        <clip><near>0.1</near><far>100</far></clip>
+                    </camera>
+                </sensor>
+            </link>
             <joint name="ext_corridor_camera_joint" type="fixed">
-                <parent>world_base_link</parent>
+                <parent>corridor_link</parent>
                 <child>ext_corridor_camera_link</child>
             </joint>
-
+            
             <!--===============================-->
             <!-- ==== Plugin ======-->
             <!--===============================-->
@@ -367,85 +385,70 @@
             </plugin>
 
             <!--===============================-->
-            <!--===========OBSTACLE 1==========-->
+            <!-- OBSTACLES-->
             <!--===============================-->
-
-            <link name="obstacle_1_link">
-                <pose relative_to='corridor_link'>-0.75 -0.3 -0.355 0 0 0</pose>
+                        <link name="obs_1_link">
+                <pose relative_to='corridor_link'>
+                    -10.765805563829787 -0.3 -0.6154134831460675 0 0 0
+                </pose>
                 <gravity>false</gravity>
 
-                <collision name="collision">
-                    <geometry>
-                        <box><size>0.05 0.05 0.05</size></box>
-                    </geometry>
-                </collision>
+                                <collision name="collision"><geometry><box>
+                    <size>0.1 0.1 0.1</size>
+                </box></geometry></collision>
+                <visual name="visual"><geometry><box>
+                    <size>0.1 0.1 0.1</size>
+                </box></geometry>
+                <material>
+                    <ambient>1 0 0 1</ambient>
+                    <diffuse>1 0 0 1</diffuse>
+                </material></visual>
 
-                <visual name="visual">
-                    <geometry>
-                        <box><size>0.05 0.05 0.05</size></box>
-                    </geometry>
-                    <material>
-                        <ambient>1 0 0 1</ambient>
-                        <diffuse>1 0 0 1</diffuse>
-                    </material>
-                </visual>
-            </link>
-
-            <joint name="obstacle_1_joint" type="fixed">
+                            </link>
+            <joint name="obs_1_joint" type="fixed">
                 <parent>corridor_link</parent>
-                <child>obstacle_1_link</child>
+                <child>obs_1_link</child>
             </joint>
-            <!--===============================-->
+                        <link name="obs_2_link">
+                <pose relative_to='corridor_link'>
+                    -11.315805563829787 0.35 -0.6154134831460675 0 0 0
+                </pose>
+                <gravity>false</gravity>
+
+                                <collision name="collision"><geometry><cylinder>
+                    <radius>0.1</radius><length>0.1</length>
+                </cylinder></geometry></collision>
+                <visual name="visual"><geometry><cylinder>
+                    <radius>0.1</radius><length>0.1</length>
+                </cylinder></geometry>
+                <material>
+                    <ambient>0 1 0 1</ambient>
+                    <diffuse>0 1 0 1</diffuse>
+                </material></visual>
+
+                            </link>
+            <joint name="obs_2_joint" type="fixed">
+                <parent>corridor_link</parent>
+                <child>obs_2_link</child>
+            </joint>
             
             <!--===============================-->
-            <!--===============OBSTACLE 2======-->
+            <!-- TURTLEBOT -->
             <!--===============================-->
-            <link name="obstacle_2_link">
-                <pose relative_to='corridor_link'>-1.2 0.35 -0.355 0 0 0</pose>
-                <gravity>false</gravity>
 
-                <collision name="collision">
-                    <geometry>
-                        <cylinder>
-                            <radius>0.05</radius>
-                            <length>0.05</length>
-                        </cylinder>
-                    </geometry>
-                </collision>
-
-                <visual name="visual">
-                    <geometry>
-                        <cylinder>
-                            <radius>0.05</radius>
-                            <length>0.05</length>
-                        </cylinder>
-                    </geometry>
-                    <material>
-                        <ambient>0 1 0 1</ambient>
-                        <diffuse>0 1 0 1</diffuse>
-                    </material>
-                </visual>
-            </link>
-
-            <joint name="obstacle_2_joint" type="fixed">
-                <parent>corridor_link</parent>
-                <child>obstacle_2_link</child>
-            </joint>
-            <!--===============================-->
+                        <include>
+                <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/turtlebot3_stereo</uri>
+                <name>turtlebot3_waffle</name>
+                <pose relative_to='corridor_link'>
+                    -11.638805563829788 0.0 -0.6554134831460675
+                    0.0 0.0 0.0
+                </pose>
+            </include>
+            
 
         </model>
         <!--===============================-->
         <!--===============================-->
-
-        <!--===============================-->
-        <!-- TURTLEBOT -->
-        <!--===============================-->
-
-        <include>
-            <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/turtlebot3_stereo</uri>
-            <name>turtlebot3_waffle</name>
-            <pose>38.675243826241136 5.0 2.1204309550561797 0.0 0.0 0.0</pose>
-        </include>
 
         <!--===============================-->
         <!-- Plugin-->

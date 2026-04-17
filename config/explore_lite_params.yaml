@@ -17,10 +17,12 @@ explore_lite:
     # Costmap Configuration
     # ============================================
     # explore_lite expects nav_msgs/OccupancyGrid, use RTAB-Map map topic.
-    costmap_topic: /map
+    #costmap_topic: /map
+    costmap_topic: /global_costmap/costmap
 
     # Incremental map updates (if provided by mapping source).
-    costmap_updates_topic: /map_updates
+    #costmap_updates_topic: /map_updates
+    costmap_updates_topic: /global_costmap/costmap_updates
 
     # ============================================
     # Exploration Strategy Parameters
@@ -43,11 +45,12 @@ explore_lite:
     # Weight of distance/potential gradient (lower value = prefer closer frontiers)
     # Range: [0.0, 10.0], default: 3.0
     potential_scale: 1.2
+    distance_scale: 2.0
 
     # Weight of robot orientation alignment (prefer exploring forward)
     # Range: [0.0, 10.0], default: 0.0
     # 3.0 = prefer frontiers aligned with robot heading
-    orientation_scale: 0.3
+    orientation_scale: 0.0
 
     # Weight of frontier gain (frontier size in cells)
     # Range: [0.0, 10.0], default: 1.0
@@ -60,7 +63,7 @@ explore_lite:
 
     # Tolerance for TF lookups (seconds)
     # Larger tolerance helps with sim-time jitter and avoids extrapolation errors.
-    transform_tolerance: 1.0
+    transform_tolerance: 0.5
 
     # Minimum frontier size to consider exploration target (meters)
-    min_frontier_size: 0.05
+    min_frontier_size: 0.1

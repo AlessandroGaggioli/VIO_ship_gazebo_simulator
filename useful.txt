@@ -1,0 +1,63 @@
+==============================================================
+To build the package and clean the CMake cache:
+
+colcon build --packages-select ship_gazebo --cmake-clean-cache
+
+===============================================================
+
+==========================================================
+Run the launch file: 
+
+    ros2 launch ship_gazebo ship_sim.launch.py 
+        mode:=mapping/navigation/navigation_no_comp
+        obstacles:=false/true
+===========================================================
+
+=================================================================
+Run the launch file and save the terminal output in a txt file: 
+
+    ros2 launch ship_gazebo ship_sim.launch.py 2>&1 | tee log.txt
+=================================================================
+
+=================================================================
+Run the teleop key: 
+
+    ros2 run teleop_twist_keyboard teleop_twist_keyboard
+=================================================================
+
+=================================================================
+run rviz2 to see the map: 
+
+    ros2 run rviz2 rviz2
+=================================================================
+
+=================================================================
+run to the save the map: 
+
+    ros2 run nav2_map_server map_saver_cli -f <filename>
+=================================================================
+
+============================================
+run the rqt image viewer: 
+
+    ros2 run rqt_image_view rqt_image_view
+============================================
+
+=======================================================================
+check active nodes or topics: 
+
+ros2 node list | grep -E "<node_name_1>|<node_name_2>|<node_name_3>"
+ros2 topic list | grep -E "<topic_name_1>|<topic_name_2>|<topic_name_3>"
+=======================================================================
+
+=================================================================
+check hz of a topic:
+
+ros2 topic hz <topic_name>
+=================================================================
+
+=================================================================
+check the tf tree:
+
+ros2 run tf2_ros tf2_echo <source_frame> <target_frame>
+=================================================================

@@ -1,0 +1,47 @@
+obstacles:
+  - name: obs_1
+    type: box
+    size: [0.1, 0.1, 0.1]
+    offset: [2.75, -0.30, 0.0]
+    color: [1, 0, 0]
+
+  - name: obs_2
+    type: cylinder
+    radius: 0.1
+    length: 0.1
+    offset: [2.20, 0.35, 0.0]
+    color: [0, 1, 0]
+
+cameras:
+  - name: first_int_corridor_camera
+    parent: corridor_link
+    reference: start
+    offset: [0.18, 0, 0.5, 0, 0.3, 0]   # x y z roll pitch yaw
+    fov: 1.047
+    width: 1280
+    height: 720
+    update_rate: 30
+
+  - name: second_int_corridor_camera
+    parent: corridor_link
+    reference: center
+    offset: [0.20, 0, 0.5, 0, 0.25, 0]
+    fov: 1.047
+    width: 1280
+    height: 720
+    update_rate: 30
+
+  - name: ext_corridor_camera
+    parent: corridor_link
+    reference: absolute
+    offset: [0, 0, 7, 0, 1.5708, 0]
+    fov: 2.0
+    width: 1280
+    height: 720
+    update_rate: 30
+
+models:
+  - name: turtlebot3_waffle
+    uri: file:///home/alienware/ship_ws/src/ship_gazebo/models/turtlebot3_stereo
+    parent: corridor_link
+    offset: null   # calcolato a runtime

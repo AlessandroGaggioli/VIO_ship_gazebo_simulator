@@ -43,7 +43,9 @@
         </material>
       </visual>
 
+      <!-- ========================================  -->
       <!-- CAMERA LEFT and CAMERA RIGHT -->
+      <!-- ======================================== -->
       <sensor name="stereo_camera_left" type="camera">
         <pose>0.09 0.06 0.10 0 0 0</pose> 
         <always_on>true</always_on>
@@ -135,6 +137,8 @@
       </sensor>
     </link>
 
+    <!--LiDAR-->
+    <!--
     <link name="base_scan">
       <inertial>
         <pose>-0.052 0 0.111 0 0 0</pose>
@@ -201,6 +205,7 @@
         </lidar>
       </sensor>
     </link>
+    -->
 
     <link name="wheel_left_link">
 
@@ -529,6 +534,8 @@
       </axis>
     </joint>
 
+    <!-- LiDAR -->
+    <!--
     <joint name="lidar_joint" type="fixed">
       <parent>base_link</parent>
       <child>base_scan</child>
@@ -537,6 +544,7 @@
         <xyz>0 0 1</xyz>
       </axis>
     </joint>
+    -->
 
     <joint name="camera_joint" type="fixed">
       <parent>base_link</parent>

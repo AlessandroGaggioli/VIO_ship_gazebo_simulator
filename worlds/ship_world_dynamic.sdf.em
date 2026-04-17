@@ -4,6 +4,17 @@
 @# -----------------
 @{
 
+import os
+import yaml
+
+from ament_index_python.packages import get_package_share_directory
+
+_pkg_path = get_package_share_directory('ship_gazebo')
+_cfg_path = os.path.join(_pkg_path, 'config', 'world_objects.yaml')
+
+with open(_cfg_path) as f:
+    _objects = yaml.safe_load(f)
+
 #==========================================================
 # ----- ship parameters -----------------------------------
 #==========================================================
@@ -16,7 +27,7 @@ ship_inertia = [
     [1000.0, 0.0,     0.0    ],
     [0.0,     1000.0, 0.0    ],
     [0.0,     0.0,     1000.0]
-] 
+]
 
 #==========================================================
 # ----- link intermedi (heave, roll, pitch) ---------------
@@ -59,6 +70,29 @@ mu  = 1.2
 mu2 = 1.2
 
 #===========================================================
+# ----- counter weight to balance for ship control ---------
+#===========================================================
+#total mass (corridor+robot)
+total_payload_mass = corridor_mass + 1.37 
+cw_pose_str = "{} {} {} 0 0 0".format(-target_center[0], -target_center[1], -target_center[2])
+
+#==========================================================
+# --------- obtacles --------------------------------------
+#==========================================================
+
+corridor_origin_x = - (corridor_size[0] * scale[0] / 2.0)
+
+def _compute_pose(item,z_half=0.0):
+    ox = corridor_origin_x + item['offset'][0]
+    oy = item['offset'][1]
+    oz = -floor_distance + z_half + item['offset'][2]
+    return (ox, oy, oz)
+
+for ob in _objects.get('obstacles', []):
+    z_half = ob['size'][2]/2.0 if ob['type']=='box' else ob['length']/2.0
+    ob['pose'] = _compute_pose(ob, z_half)
+
+#===========================================================
 # ----- robot parameters -----------------------------------
 #===========================================================
 
@@ -73,30 +107,11 @@ robot_pitch = 0.0
 robot_yaw   = 0.0
 robot_pose  = (robot_x, robot_y, robot_z, robot_roll, robot_pitch, robot_yaw)
 
-#===========================================================
-# ----- counter weight to balance for ship control ---------
-#===========================================================
-#total mass (corridor+robot)
-total_payload_mass = corridor_mass + 1.37 
-cw_pose_str = "{} {} {} 0 0 0".format(-target_center[0], -target_center[1], -target_center[2])
-
-#==========================================================
-# --------- obtacles --------------------------------------
-#==========================================================
-
-ob1_size = (0.1,0.1,0.1) #cube 
-ob_x = -(corridor_size[0] * scale[0] / 2.0) + 2.75
-ob_y = - 0.30
-ob_z = -floor_distance + ob1_size[2]/2.0
-
-ob1_pose = (ob_x,ob_y,ob_z,0,0,0) 
-
-ob2_size = (0.1,0.1) #cylinder
-ob_x = -(corridor_size[0] * scale[0] / 2.0) + 2.20
-ob_y = 0.35
-ob_z = -floor_distance + ob2_size[1]/2.0
-
-ob2_pose = (ob_x,ob_y,ob_z,0,0,0)
+for m in _objects.get('models', []):
+    if m['offset'] is None:
+        m['pose'] = robot_pose   # usa la posa calcolata
+    else:
+        m['pose'] = _compute_pose(m)
 
 #===========================================================
 # ----- motion parameters ----------------------------------
@@ -140,41 +155,23 @@ imu_noise_gyro  = 0.00010  # rad/s
 imu_bias_accel  = 0.0
 imu_bias_gyro   = 0.0
 
-#===============================================================
-# ----- first internal camera parameters ------------------------
-#================================================================
-int_camera_x = -(corridor_size[0] * scale[0] / 2.0) +0.18
-int_camera_y = 0
-int_camera_z = 0.5
-int_camera_roll = 0
-int_camera_pitch = 0.3
-int_camera_yaw = 0
+#===========================================================
+# ----- cameras parameters --------------------------------
+#===========================================================
+for cam in _objects.get('cameras', []):
+    off = cam.get('offset', [0, 0, 0, 0, 0, 0])
+    ref = cam.get('reference', 'absolute')
 
-first_int_camera_pose = (int_camera_x, int_camera_y, int_camera_z, int_camera_roll, int_camera_pitch, int_camera_yaw)
+    if ref == 'start':
+        x_final = corridor_origin_x + off[0]
+    elif ref == 'end':
+        x_final = corridor_end_x + off[0]
+    elif ref in ['center', 'absolute']:
+        x_final = off[0]
+    else:
+        x_final = off[0]
 
-#===============================================================
-# ----- second internal camera parameters ------------------------
-#================================================================
-int_camera_x = 0
-int_camera_y = 0
-int_camera_z = 0.5
-int_camera_roll = 0
-int_camera_pitch = 0.2
-int_camera_yaw = 0
-
-second_int_camera_pose = (int_camera_x, int_camera_y, int_camera_z, int_camera_roll, int_camera_pitch, int_camera_yaw)
-
-#==========================================================
-# ----- external camera parameters ------------------------
-#==========================================================
-ext_camera_x = 0 
-ext_camera_y = 0
-ext_camera_z = 7
-ext_camera_roll = 0
-ext_camera_pitch = 1.5708
-ext_camera_yaw = 0
-
-ext_camera_pose = (ext_camera_x, ext_camera_y, ext_camera_z, ext_camera_roll, ext_camera_pitch, ext_camera_yaw)
+    cam['pose'] = (x_final, off[1], off[2], off[3], off[4], off[5])
 
 }@
 <sdf version="1.8">
@@ -402,7 +399,7 @@ ext_camera_pose = (ext_camera_x, ext_camera_y, ext_camera_z, ext_camera_roll, ex
                 <visual name="corridor_visual">
                     <geometry>
                         <mesh>
-                            <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_large_corridor.dae</uri>
+                            <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_color/ship_large_corridor_colored_chess.dae</uri>
                             <scale>@(scale[0]) @(scale[1]) @(scale[2])</scale>
                         </mesh>
                     </geometry>
@@ -462,101 +459,37 @@ ext_camera_pose = (ext_camera_x, ext_camera_y, ext_camera_z, ext_camera_roll, ex
                 <child>counterweight_link</child>
             </joint>
 
-            <!--===============================-->
-            <!--====first internal camera  ============-->
-            <!--===============================-->
+            <!--==========================================-->
+            <!-- CAMERAS -->
+            <!--==========================================-->
 
-            <link name="first_int_corridor_camera_link">
-                <pose relative_to='corridor_link'>@(first_int_camera_pose[0]) @(first_int_camera_pose[1]) @(first_int_camera_pose[2]) @(first_int_camera_pose[3]) @(first_int_camera_pose[4]) @(first_int_camera_pose[5])</pose>
+            @[for cam in _objects.get('cameras', [])]@
+            <link name="@(cam['name'])_link">
+                <pose relative_to='@(cam['parent'])'>
+                    @(cam['pose'][0]) @(cam['pose'][1]) @(cam['pose'][2])
+                    @(cam['pose'][3]) @(cam['pose'][4]) @(cam['pose'][5])
+                </pose>
                 <gravity>false</gravity>
-
-                <sensor name="first_int_corridor_camera" type="camera">
+                <sensor name="@(cam['name'])" type="camera">
                     <pose>0 0 0 0 0 0</pose>
                     <always_on>true</always_on>
-                    <update_rate>30</update_rate>
+                    <update_rate>@(cam['update_rate'])</update_rate>
                     <camera>
-                        <horizontal_fov>1.047</horizontal_fov>
+                        <horizontal_fov>@(cam['fov'])</horizontal_fov>
                         <image>
-                            <width>1280</width>
-                            <height>720</height>
+                            <width>@(cam['width'])</width>
+                            <height>@(cam['height'])</height>
                             <format>R8G8B8</format>
                         </image>
-                        <clip>
-                            <near>0.1</near>
-                            <far>100</far>
-                        </clip>
+                        <clip><near>0.1</near><far>100</far></clip>
                     </camera>
                 </sensor>
             </link>
-
-            <joint name="first_int_corridor_camera_joint" type="fixed">
-                <parent>corridor_link</parent>
-                <child>first_int_corridor_camera_link</child>
+            <joint name="@(cam['name'])_joint" type="fixed">
+                <parent>@(cam['parent'])</parent>
+                <child>@(cam['name'])_link</child>
             </joint>
-
-            <!--===============================-->
-            <!--====second internal camera  ============-->
-            <!--===============================-->
-
-            <link name="second_int_corridor_camera_link">
-                <pose relative_to='corridor_link'>@(second_int_camera_pose[0]) @(second_int_camera_pose[1]) @(second_int_camera_pose[2]) @(second_int_camera_pose[3]) @(second_int_camera_pose[4]) @(second_int_camera_pose[5])</pose>
-                <gravity>false</gravity>
-
-                <sensor name="second_int_corridor_camera" type="camera">
-                    <pose>0 0 0 0 0 0</pose>
-                    <always_on>true</always_on>
-                    <update_rate>30</update_rate>
-                    <camera>
-                        <horizontal_fov>1.047</horizontal_fov>
-                        <image>
-                            <width>1280</width>
-                            <height>720</height>
-                            <format>R8G8B8</format>
-                        </image>
-                        <clip>
-                            <near>0.1</near>
-                            <far>100</far>
-                        </clip>
-                    </camera>
-                </sensor>
-            </link>
-
-            <joint name="second_int_corridor_camera_joint" type="fixed">
-                <parent>corridor_link</parent>
-                <child>second_int_corridor_camera_link</child>
-            </joint>
-
-            <!--===============================-->
-            <!-- === external camera ===== -->
-            <!--===============================-->
-
-            <link name="ext_corridor_camera_link">
-                <pose relative_to='corridor_link'>@(ext_camera_pose[0]) @(ext_camera_pose[1]) @(ext_camera_pose[2]) @(ext_camera_pose[3]) @(ext_camera_pose[4]) @(ext_camera_pose[5])</pose>
-                <gravity>false</gravity>
-
-                <sensor name="ext_corridor_camera" type="camera">
-                    <pose>0 0 0 0 0 0</pose>
-                    <always_on>true</always_on>
-                    <update_rate>30</update_rate>
-                    <camera>
-                        <horizontal_fov>2.0</horizontal_fov>
-                        <image>
-                            <width>1280</width>
-                            <height>720</height>
-                            <format>R8G8B8</format>
-                        </image>
-                        <clip>
-                            <near>0.1</near>
-                            <far>100</far>
-                        </clip>
-                    </camera>
-                </sensor>
-            </link>
-
-            <joint name="ext_corridor_camera_joint" type="fixed">
-                <parent>corridor_link</parent>
-                <child>ext_corridor_camera_link</child>
-            </joint>
+            @[end for]@
 
             <!--===============================-->
             <!-- ==== Plugin ======-->
@@ -579,83 +512,62 @@ ext_camera_pose = (ext_camera_x, ext_camera_y, ext_camera_z, ext_camera_roll, ex
             </plugin>
 
             <!--===============================-->
-            <!--===========OBSTACLE 1==========-->
+            <!-- OBSTACLES-->
             <!--===============================-->
-
-            <link name="obstacle_1_link">
-                <pose relative_to='corridor_link'>@(ob1_pose[0]) @(ob1_pose[1]) @(ob1_pose[2]) 0 0 0</pose>
+            @[for ob in _objects.get('obstacles', [])]@
+            <link name="@(ob['name'])_link">
+                <pose relative_to='corridor_link'>
+                    @(ob['pose'][0]) @(ob['pose'][1]) @(ob['pose'][2]) 0 0 0
+                </pose>
                 <gravity>false</gravity>
 
-                <collision name="collision">
-                    <geometry>
-                        <box><size>@(ob1_size[0]) @(ob1_size[1]) @(ob1_size[2])</size></box>
-                    </geometry>
-                </collision>
+                @[if ob['type'] == 'box']@
+                <collision name="collision"><geometry><box>
+                    <size>@(ob['size'][0]) @(ob['size'][1]) @(ob['size'][2])</size>
+                </box></geometry></collision>
+                <visual name="visual"><geometry><box>
+                    <size>@(ob['size'][0]) @(ob['size'][1]) @(ob['size'][2])</size>
+                </box></geometry>
+                <material>
+                    <ambient>@(ob['color'][0]) @(ob['color'][1]) @(ob['color'][2]) 1</ambient>
+                    <diffuse>@(ob['color'][0]) @(ob['color'][1]) @(ob['color'][2]) 1</diffuse>
+                </material></visual>
 
-                <visual name="visual">
-                    <geometry>
-                        <box><size>@(ob1_size[0]) @(ob1_size[1]) @(ob1_size[2])</size></box>
-                    </geometry>
-                    <material>
-                        <ambient>1 0 0 1</ambient>
-                        <diffuse>1 0 0 1</diffuse>
-                    </material>
-                </visual>
+                @[elif ob['type'] == 'cylinder']@
+                <collision name="collision"><geometry><cylinder>
+                    <radius>@(ob['radius'])</radius><length>@(ob['length'])</length>
+                </cylinder></geometry></collision>
+                <visual name="visual"><geometry><cylinder>
+                    <radius>@(ob['radius'])</radius><length>@(ob['length'])</length>
+                </cylinder></geometry>
+                <material>
+                    <ambient>@(ob['color'][0]) @(ob['color'][1]) @(ob['color'][2]) 1</ambient>
+                    <diffuse>@(ob['color'][0]) @(ob['color'][1]) @(ob['color'][2]) 1</diffuse>
+                </material></visual>
+
+                @[end if]@
             </link>
-
-            <joint name="obstacle_1_joint" type="fixed">
+            <joint name="@(ob['name'])_joint" type="fixed">
                 <parent>corridor_link</parent>
-                <child>obstacle_1_link</child>
+                <child>@(ob['name'])_link</child>
             </joint>
-            <!--===============================-->
-            
-            <!--===============================-->
-            <!--===============OBSTACLE 2======-->
-            <!--===============================-->
-            <link name="obstacle_2_link">
-                <pose relative_to='corridor_link'>@(ob2_pose[0]) @(ob2_pose[1]) @(ob2_pose[2]) 0 0 0</pose>
-                <gravity>false</gravity>
-
-                <collision name="collision">
-                    <geometry>
-                        <cylinder>
-                            <radius>@(ob2_size[0])</radius>
-                            <length>@(ob2_size[1])</length>
-                        </cylinder>
-                    </geometry>
-                </collision>
-
-                <visual name="visual">
-                    <geometry>
-                        <cylinder>
-                            <radius>@(ob2_size[0])</radius>
-                            <length>@(ob2_size[0])</length>
-                        </cylinder>
-                    </geometry>
-                    <material>
-                        <ambient>0 1 0 1</ambient>
-                        <diffuse>0 1 0 1</diffuse>
-                    </material>
-                </visual>
-            </link>
-
-            <joint name="obstacle_2_joint" type="fixed">
-                <parent>corridor_link</parent>
-                <child>obstacle_2_link</child>
-            </joint>
-            <!--===============================-->
+            @[end for]@
 
             <!--===============================-->
             <!-- TURTLEBOT -->
             <!--===============================-->
 
+            @[for m in _objects.get('models', [])]@
             <include>
-                <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/turtlebot3_stereo</uri>
-                <name>turtlebot3_waffle</name>
-                <pose relative_to='corridor_link'>
-                    @(robot_pose[0]) @(robot_pose[1]) @(robot_pose[2]) @(robot_pose[3]) @(robot_pose[4]) @(robot_pose[5])
+                <uri>@(m['uri'])</uri>
+                <name>@(m['name'])</name>
+                <pose relative_to='@(m['parent'])'>
+                    @(m['pose'][0]) @(m['pose'][1]) @(m['pose'][2])
+                    @(m['pose'][3]) @(m['pose'][4]) @(m['pose'][5])
                 </pose>
             </include>
+            @[end for]@
+
 
         </model>
         <!--===============================-->
