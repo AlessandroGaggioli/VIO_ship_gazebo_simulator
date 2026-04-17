@@ -23,11 +23,11 @@ disparity_map:
   ros__parameters:
     use_sim_time: True
     approximate_sync: True
-    queue_size: 20
+    queue_size: 50
     stereo_algorithm: 1 # 0 = BM, 1 = SGBM (more accurate)
     correlation_window_size: 15
     min_disparity: 2
-    num_disparities: 48 # multiple of 16
+    num_disparities: 64 # multiple of 16
 
 #============================================
 # Stereo View Parameters

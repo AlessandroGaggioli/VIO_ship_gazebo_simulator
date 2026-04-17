@@ -46,8 +46,9 @@
       <!-- ========================================  -->
       <!-- CAMERA LEFT and CAMERA RIGHT -->
       <!-- ======================================== -->
+      
       <sensor name="stereo_camera_left" type="camera">
-        <pose>0.09 0.06 0.10 0 0 0</pose> 
+        <pose>0.09 0.06 0.10 0 0 0</pose>
         <always_on>true</always_on>
         <update_rate>30.0</update_rate>
         <topic>/camera/left/image_raw</topic>
@@ -66,7 +67,7 @@
       </sensor>
 
       <sensor name="stereo_camera_right" type="camera">
-        <pose>0.09 -0.06 0.10 0 0 0</pose> 
+        <pose>0.09 -0.06 0.10 0 0 0</pose>
         <always_on>true</always_on>
         <update_rate>30.0</update_rate>
         <topic>/camera/right/image_raw</topic>
@@ -83,6 +84,9 @@
           </clip>
         </camera>
       </sensor>
+    
+
+      
     <!-- ======================================== -->
     </link>
 
@@ -425,7 +429,7 @@
 
     <link name="camera_link"/>
 
-    <link name="camera_rgb_frame">
+    <!-- <link name="camera_rgb_frame">
       <inertial>
         <pose>0.069 -0.047 0.107 0 0 0</pose>
         <inertia>
@@ -459,15 +463,12 @@
           </clip>
           <noise>
             <type>gaussian</type>
-            <!-- Noise is sampled independently per pixel on each frame.
-                  That pixel's noise value is added to each of its color
-                  channels, which at that point lie in the range [0,1]. -->
             <mean>0.0</mean>
             <stddev>0.007</stddev>
           </noise>
         </camera>
       </sensor>
-    </link>
+    </link> -->
 
     <joint name="base_joint" type="fixed">
       <parent>base_footprint</parent>
@@ -555,14 +556,14 @@
       </axis>
     </joint>
 
-    <joint name="camera_rgb_joint" type="fixed">
+    <!-- <joint name="camera_rgb_joint" type="fixed">
       <parent>camera_link</parent>
       <child>camera_rgb_frame</child>
       <pose>0.005 0.018 0.013 0 0 0</pose>
       <axis>
         <xyz>0 0 1</xyz>
       </axis>
-    </joint>
+    </joint> -->
 
     <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
 

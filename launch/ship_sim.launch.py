@@ -250,6 +250,13 @@ def generate_launch_description():
         output='screen'
     )
 
+    rqt_image_view = ExecuteProcess(
+        cmd=[
+            'ros2', 'run', 'rqt_image_view', 'rqt_image_view'
+        ],
+        output='screen'
+    )
+
     # Node for compensating the IMU readings based on the robot's spawn position in the world
     compensate_imu = Node(
         package='ship_gazebo',
@@ -279,30 +286,30 @@ def generate_launch_description():
     parameters=[ekf_odom_params_path]
     )
 
-    # rtabmap_parameters_path = os.path.join(pkg_share, 'config', 'rtabmap_params.yaml')
-
     # ---------------------------------------------------------
     # Stereo odometry + RTAB-Map are intentionally disabled now
     # We are validating EKF-only odometry (wheel + IMU) first.
     # ---------------------------------------------------------
-    # stereo_odom_remappings = [
-    #         ('left/image_rect', '/camera/left/image_rect'),
-    #         ('right/image_rect', '/camera/right/image_rect'),
-    #         ('left/camera_info', '/camera/left/camera_info'),
-    #         ('right/camera_info', '/camera/right/camera_info'),
-    #         ('odom', '/stereo_odom'),
-    #         ('/odom', '/stereo_odom'),
-    #         ('~/odom', '/stereo_odom')
-    # ]
 
-    # stereo_odometry_node = Node(
-    #     package='rtabmap_odom',
-    #     executable='stereo_odometry',
-    #     name='stereo_odometry',
-    #     output='screen',
-    #     parameters=[rtabmap_parameters_path],
-    #     remappings=stereo_odom_remappings
-    # )
+    rtabmap_parameters_path = os.path.join(pkg_share, 'config', 'rtabmap_params.yaml')
+
+    stereo_odom_remappings = [
+            ('left/image_rect', '/camera/left/image_rect'),
+            ('right/image_rect', '/camera/right/image_rect'),
+            ('left/camera_info', '/camera/left/camera_info'),
+            ('right/camera_info', '/camera/right/camera_info'),
+            ('odom', '/stereo_odom'),
+            ('odom_local_map', '/stereo_odom_local_map')
+    ]
+
+    stereo_odometry_node = Node(
+        package='rtabmap_odom',
+        executable='stereo_odometry',
+        name='stereo_odometry',
+        output='screen',
+        parameters=[rtabmap_parameters_path],
+        remappings=stereo_odom_remappings
+    )
 
     # rtabmap_slam_remappings = [
     #         ('left/image_rect', '/camera/left/image_rect'),
@@ -324,7 +331,7 @@ def generate_launch_description():
     #     arguments=['-d']
     # )
 
-    # delayed_stereo_odometry_node = TimerAction(period=4.0, actions=[stereo_odometry_node])
+    delayed_stereo_odometry_node = TimerAction(period=4.0, actions=[stereo_odometry_node])
     # delayed_rtabmap_slam_node = TimerAction(period=7.0, actions=[rtabmap_slam_node])
 
 
@@ -462,12 +469,6 @@ def generate_launch_description():
             output='screen'
         ),
 
-        ExecuteProcess(
-            cmd=[
-                'ros2', 'run', 'rqt_image_view', 'rqt_image_view'
-            ],
-            output='screen' 
-        ),
         left_camera_tf,
         right_camera_tf,
         imu_tf,
@@ -475,7 +476,7 @@ def generate_launch_description():
         right_camera_rect,
         compensate_imu,
         ekf_odom_node,
-        # delayed_stereo_odometry_node,
+        delayed_stereo_odometry_node,
         # delayed_rtabmap_slam_node,
         # reset_localization_node,
         # rviz_cmd
@@ -485,6 +486,7 @@ def generate_launch_description():
 
     #append the stereo view and disparity map nodes only if debug_camera is enabled
     if debug_camera:
+        nodes_list.append(rqt_image_view)
         nodes_list.append(stereo_view)
         nodes_list.append(disparity_map)
 

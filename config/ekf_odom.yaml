@@ -6,8 +6,8 @@ ekf_filter_node:
     transform_time_offset: 0.30
     sensor_timeout: 0.3
     two_d_mode: true
-    publish_tf: true # set to true to pub the transform between the odom and base_link frames
-                     # required for stereo_odometry node as a prior_guess (guess_frame_id)s
+    publish_tf: false # keep EKF TF disabled while stereo_odometry owns odom TF
+              # avoids competing TF publishers for base_footprint
 
     map_frame: map 
     odom_frame: odom_ekf 
