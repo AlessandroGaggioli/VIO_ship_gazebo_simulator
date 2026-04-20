@@ -61,3 +61,49 @@ check the tf tree:
 
 ros2 run tf2_ros tf2_echo <source_frame> <target_frame>
 =================================================================
+
+==================================================================
+to compares the EKF and stereo odometry outputs, run the odom_comparator node:
+
+    ros2 run ship_gazebo odom_comparator --ros-args -p write_csv:=true -p csv_path:=<csv_path>
+
+remember to comment out the odom1 in the ekf_odom.yaml file!!! 
+==================================================================
+
+==================================================================
+Single TF owner profiles (avoid TF conflicts on odom->base_footprint)
+
+Rule:
+    Only ONE source should publish the odometry TF to base_footprint.
+
+Profile A - Wheel TF owner + stereo uses wheel guess (recommended for tests)
+    bridge_config.yaml:
+        /tf bridge ENABLED
+    rtabmap_params.yaml (/stereo_odometry):
+        publish_tf: False
+        guess_frame_id: 'odom'
+    ekf_odom.yaml:
+        publish_tf: false
+
+Profile B - Stereo TF owner
+    bridge_config.yaml:
+        /tf bridge DISABLED
+    rtabmap_params.yaml (/stereo_odometry):
+        publish_tf: True
+    ekf_odom.yaml:
+        publish_tf: false
+
+Profile C - EKF TF owner
+    bridge_config.yaml:
+        /tf bridge DISABLED
+    rtabmap_params.yaml (/stereo_odometry):
+        publish_tf: False
+    ekf_odom.yaml:
+        publish_tf: true
+
+Quick checks:
+    ros2 topic echo /tf --once
+    ros2 run tf2_ros tf2_echo odom base_footprint
+    ros2 param get /stereo_odometry publish_tf
+    ros2 param get /ekf_filter_node publish_tf
+==================================================================

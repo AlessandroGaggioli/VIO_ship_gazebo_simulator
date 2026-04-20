@@ -75,15 +75,15 @@
 #----------------------------------------------
 # TF turtlebot3
 #----------------------------------------------
-# Disabled on purpose: Gazebo ground-truth TF publishes odom->base_footprint,
-# which conflicts with stereo_odometry TF (stereo_odom->base_footprint).
-# Keep a single TF owner for base_footprint.
-# - ros_topic_name: /tf
-#   gz_topic_name: /model/turtlebot3_waffle/tf
-#   ros_type_name: tf2_msgs/msg/TFMessage
-#   gz_type_name: gz.msgs.Pose_V
-#   direction: GZ_TO_ROS
-#   lazy: false
+# Enabled: wheel odometry TF (odom->base_footprint) is used as guess by
+# stereo_odometry (guess_frame_id=odom). Keep stereo_odometry publish_tf=false
+# to avoid two TF owners for base_footprint.
+- ros_topic_name: /tf
+  gz_topic_name: /model/turtlebot3_waffle/tf
+  ros_type_name: tf2_msgs/msg/TFMessage
+  gz_type_name: gz.msgs.Pose_V
+  direction: GZ_TO_ROS
+  lazy: false
 
 # ---------------------------------------------
 # ODOMETRY AND CMD_VEL 

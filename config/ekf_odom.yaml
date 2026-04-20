@@ -46,6 +46,18 @@ ekf_filter_node:
     odom0_differential: false
     odom0_relative: false
 
+    # # Visual odometry from stereo. We fuse pose only to avoid reusing velocity data.
+    # odom1: /stereo_odom
+    # odom1_config: [
+    #   true,  true,  false, # X, Y, Z
+    #   false, false, true,  # roll, pitch, yaw
+    #   false, false, false, # X_dot, Y_dot, Z_dot
+    #   false, false, false, # roll_dot, pitch_dot, yaw_dot
+    #   false, false, false  # X_ddot, Y_ddot, Z_ddot
+    # ]
+    # odom1_queue_size: 20
+    # odom1_differential: false
+    # odom1_relative: false 
     # 
 
     # Compensated IMU used for orientation and angular rates.

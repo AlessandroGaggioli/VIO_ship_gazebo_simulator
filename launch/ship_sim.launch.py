@@ -51,7 +51,6 @@ def get_mode_config(mode_str):
 def generate_launch_description():
 
     mode_str = 'navigation'
-    enable_obstacles = True
     debug_camera = False
 
     # Ensure there is a single simulation/clock source.
@@ -60,12 +59,10 @@ def generate_launch_description():
     subprocess.run(['pkill', '-f', '^gz sim'], check=False)
     subprocess.run(['pkill', '-f', 'ros_gz_bridge.*parameter_bridge'], check=False)
 
-    # Parse command line arguments to get the mode and obstacles settings
+    # Parse command line arguments to get the mode settings
     for arg in sys.argv:
         if 'mode:=' in arg:
             mode_str = arg.split(':=')[1]  # get the value after ':=' and set it to mode_str
-        if 'obstacles:=' in arg:
-            enable_obstacles = arg.split(':=')[1].lower() == 'true' # convert to boolean and set to enable_obstacles
         if 'debug_camera:=' in arg:
             debug_camera = arg.split(':=')[1].lower() == 'true' # convert to boolean and set to debug_camera
     
@@ -89,11 +86,8 @@ def generate_launch_description():
     plugin_path = os.path.join(pkg_prefix, 'lib', 'ship_gazebo') # path to the Gazebo plugins compiled from the ship_gazebo package
     sdf_dir = os.path.join(pkg_share, 'worlds') # directory where the SDF world templates are located.
 
-    if enable_obstacles: # choose the SDF template with obstacles if enabled, otherwise use the one without obstacles
-        sdf_em = os.path.join(sdf_dir, 'ship_world_dynamic.sdf.em')
-    else:
-        sdf_em = os.path.join(sdf_dir, 'ship_world_dynamic_NoObs.sdf.em')
-    
+
+    sdf_em = os.path.join(sdf_dir, 'ship_world_dynamic.sdf.em')
     sdf_out = os.path.join(sdf_dir, 'ship_world_dynamic.sdf')
     bridge_config = os.path.join(pkg_share, 'config', 'bridge_config.yaml')
 
@@ -299,7 +293,8 @@ def generate_launch_description():
             ('left/camera_info', '/camera/left/camera_info'),
             ('right/camera_info', '/camera/right/camera_info'),
             ('odom', '/stereo_odom'),
-            ('odom_local_map', '/stereo_odom_local_map')
+            ('odom_local_map', '/stereo_odom_local_map'),
+            ('imu','/robot/imu/compensated') # use the compensated IMU readings for stereo odometry for VINS-Fusion
     ]
 
     stereo_odometry_node = Node(
@@ -309,6 +304,19 @@ def generate_launch_description():
         output='screen',
         parameters=[rtabmap_parameters_path],
         remappings=stereo_odom_remappings
+    )
+
+    stereo_odom_tf_publisher_node = Node(
+        package='ship_gazebo',
+        executable='stereo_odom_tf_publisher.py',
+        name='stereo_odom_tf_publisher',
+        output='screen',
+        parameters=[{
+            'use_sim_time': True,
+            'odom_topic': '/stereo_odom',
+            'parent_frame_id': 'stereo_odom',
+            'child_frame_id': 'base_footprint_stereo'
+        }]
     )
 
     # rtabmap_slam_remappings = [
@@ -331,7 +339,8 @@ def generate_launch_description():
     #     arguments=['-d']
     # )
 
-    delayed_stereo_odometry_node = TimerAction(period=4.0, actions=[stereo_odometry_node])
+    delayed_stereo_odometry_node = TimerAction(period=3.0, actions=[stereo_odometry_node])
+    delayed_stereo_odom_tf_publisher_node = TimerAction(period=4.0, actions=[stereo_odom_tf_publisher_node])
     # delayed_rtabmap_slam_node = TimerAction(period=7.0, actions=[rtabmap_slam_node])
 
 
@@ -422,7 +431,7 @@ def generate_launch_description():
     #     }]
     # )
 
-    # # Rviz node for visualizing the robot, the map, and the navigation process. 
+    # Rviz node for visualizing the robot, the map, and the navigation process. 
     # rviz_config_path = os.path.join(get_package_share_directory('nav2_bringup'),'rviz','nav2_default_view.rviz')
     # rviz_cmd = Node(
     #     package='rviz2',
@@ -440,7 +449,6 @@ def generate_launch_description():
 
     nodes_list = [
         DeclareLaunchArgument('mode', default_value='navigation',description='Select the mode of operation: mapping, navigation_no_comp, navigation'),
-        DeclareLaunchArgument('obstacles', default_value='true',description='Enable or disable obstacles in the simulation'),
         DeclareLaunchArgument('debug_camera', default_value='false', description='Enable or disable debug camera nodes (stereo_view and disparity_map)'),
 
         AppendEnvironmentVariable(
@@ -452,14 +460,14 @@ def generate_launch_description():
             name='GZ_SIM_RESOURCE_PATH',
             value='/opt/ros/jazzy/share/turtlebot3_gazebo/models',
         ),
-        
+        #execute the Gazebo simulator with the generated SDF file <sdf_out>
         ExecuteProcess(
             cmd=[
                 'gz', 'sim','-r', sdf_out
             ],
             output='screen'
         ),
-
+        # execute the ros_gz_bridge parameter_bridge to bridge the topics between Gazebo and ROS 2
         ExecuteProcess(
             cmd=[
                 'ros2', 'run', 'ros_gz_bridge', 'parameter_bridge',
@@ -469,17 +477,18 @@ def generate_launch_description():
             output='screen'
         ),
 
-        left_camera_tf,
-        right_camera_tf,
-        imu_tf,
-        left_camera_rect,
-        right_camera_rect,
-        compensate_imu,
-        ekf_odom_node,
-        delayed_stereo_odometry_node,
+        left_camera_tf, # static transform from base_footprint to left camera
+        right_camera_tf, # static transform from base_footprint to right camera
+        imu_tf, # static transform from base_footprint to IMU
+        left_camera_rect, # node for rectifying the left camera image
+        right_camera_rect, # node for rectifying the right camera image
+        compensate_imu, # node for compensating the IMU readings w.r.t. the ship motion
+        ekf_odom_node, # node for EKF-based odometry using wheel and IMU data
+        delayed_stereo_odometry_node, # node for stereo odometry using the rectified camera images, delayed to ensure the cameras are up and running before starting
+        delayed_stereo_odom_tf_publisher_node, # publish stereo odom TF on a dedicated child frame for visualization/debug
         # delayed_rtabmap_slam_node,
         # reset_localization_node,
-        # rviz_cmd
+        #rviz_cmd
     ]
 
     # Conditionally add nodes for exploration and navigation based on the selected mode
