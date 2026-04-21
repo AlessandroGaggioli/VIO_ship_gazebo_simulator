@@ -71,17 +71,16 @@
 #     Kp/RoiRatios: '0.03 0.03 0.04 0.04'
 #     Kp/MaxDepth: '4.0'
 
-
-
 /reset_localization:
   ros__parameters:
-    use_sim_time: Trueobstacles
+    use_sim_time: True
     wait_time: 3.0
 
 /stereo_odometry:
   ros__parameters:
+    use_sim_time: True
     approx_sync: True
-    approx_sync_max_interval: 0.08
+    approx_sync_max_interval: 0.04
     subscribe_rgbd: False
     subscribe_imu: True
     wait_imu_to_init: True
@@ -100,6 +99,16 @@
     guess_frame_id: 'odom'
     guess_min_translation: 0.005
     guess_min_rotation: 0.005
-    guess_min_time: 0.03
+    guess_min_time: 0.06
+    # Increase valid disparity range for near-wall/near-obstacle scenes.
+    Stereo/MaxDisparity: '256'
+    # Be less brittle when features become temporarily poor.
+    Vis/MinInliers: '12'
+    # Use descriptor-based matching (more robust to brightness/exposure changes than optical flow).
+    Vis/CorType: '0'
+    # Keep more keypoints to reduce feature starvation in low-texture views.
+    Kp/MaxFeatures: '1200'
+    # Recover quickly after consecutive registration failures.
+    Odom/ResetCountdown: '1'
     Odom/Strategy: '0' #[0=Frame-to-Map (F2M) 1=Frame-to-Frame (F2F) 2=Fovis 3=viso2 4=DVO-SLAM 5=ORB_SLAM2 6=OKVIS 7=LOAM 8=MSCKF_VIO 9=VINS-Fusion 10=OpenVINS 11=FLOAM 12=Open3D]
   

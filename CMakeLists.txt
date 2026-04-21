@@ -30,7 +30,6 @@ install(TARGETS ShipMotionPlugin
   DESTINATION lib/${PROJECT_NAME}
 )
 
-
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
@@ -54,8 +53,8 @@ install(DIRECTORY
 install(PROGRAMS
   src/imu_compensator.py
   src/reset_localization.py
+  src/ground_truth_odometry.py
   src/odom_comparator.py
-  src/plot_odom_comparison.py
   src/stereo_odom_tf_publisher.py
   DESTINATION lib/${PROJECT_NAME}
 )

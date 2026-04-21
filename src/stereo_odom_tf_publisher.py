@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 
+import math
+
 import rclpy
 from rclpy.node import Node
 
@@ -38,7 +40,29 @@ class StereoOdomTfPublisher(Node):
             f'{self._parent_frame_id} -> {self._child_frame_id}'
         )
 
+    @staticmethod
+    def _is_finite(*values: float) -> bool:
+        return all(math.isfinite(v) for v in values)
+
     def _odom_callback(self, msg: Odometry) -> None:
+        px = msg.pose.pose.position.x
+        py = msg.pose.pose.position.y
+        pz = msg.pose.pose.position.z
+
+        qx = msg.pose.pose.orientation.x
+        qy = msg.pose.pose.orientation.y
+        qz = msg.pose.pose.orientation.z
+        qw = msg.pose.pose.orientation.w
+
+        if not self._is_finite(px, py, pz, qx, qy, qz, qw):
+            self.get_logger().warn('Skipping TF publish: odometry pose has NaN/Inf values.')
+            return
+
+        q_norm = math.sqrt(qx * qx + qy * qy + qz * qz + qw * qw)
+        if q_norm < 1e-6:
+            self.get_logger().warn('Skipping TF publish: odometry quaternion norm is too small.')
+            return
+
         transform = TransformStamped()
         transform.header.stamp = msg.header.stamp
 
@@ -49,10 +73,13 @@ class StereoOdomTfPublisher(Node):
 
         transform.child_frame_id = self._child_frame_id
 
-        transform.transform.translation.x = msg.pose.pose.position.x
-        transform.transform.translation.y = msg.pose.pose.position.y
-        transform.transform.translation.z = msg.pose.pose.position.z
-        transform.transform.rotation = msg.pose.pose.orientation
+        transform.transform.translation.x = px
+        transform.transform.translation.y = py
+        transform.transform.translation.z = pz
+        transform.transform.rotation.x = qx / q_norm
+        transform.transform.rotation.y = qy / q_norm
+        transform.transform.rotation.z = qz / q_norm
+        transform.transform.rotation.w = qw / q_norm
 
         self._tf_broadcaster.sendTransform(transform)
 

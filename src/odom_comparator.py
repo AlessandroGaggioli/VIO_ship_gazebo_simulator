@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
 
+"""
+
+Odometry comparator for comparing estimated and ground truth odometry.
+
+This node subscribes to two odometry topics (e.g., from stereo odometry and ground truth) and computes the error between them.
+It periodically reports the mean error, RMSE, and standard deviation for position, orientation, and velocity. 
+Optionally, it can also write the synchronized odometry data and errors to a CSV file for further analysis.
+"""
+
 import csv
 import math
 from pathlib import Path
@@ -31,38 +40,42 @@ class OdomComparator(Node):
     def __init__(self):
         super().__init__('odom_comparator')
 
-        self.declare_parameter('ekf_topic', '/odometry/filtered')
-        self.declare_parameter('stereo_topic', '/stereo_odom')
+        self.declare_parameter('target_topic', '/stereo_odom')
+        self.declare_parameter('truth_topic', '/ground_truth/odom')
+        self.declare_parameter('target_name', 'target')
+        self.declare_parameter('truth_name', 'truth')
         self.declare_parameter('sync_queue_size', 100)
         self.declare_parameter('sync_slop', 0.08)
         self.declare_parameter('report_period_sec', 1.0)
         self.declare_parameter('write_csv', False)
         self.declare_parameter('csv_path', '/home/alienware/ship_ws/bags/odom_comparison.csv')
 
-        ekf_topic = self.get_parameter('ekf_topic').get_parameter_value().string_value
-        stereo_topic = self.get_parameter('stereo_topic').get_parameter_value().string_value
+        target_topic = self.get_parameter('target_topic').get_parameter_value().string_value
+        truth_topic = self.get_parameter('truth_topic').get_parameter_value().string_value
+        self.target_name = self.get_parameter('target_name').get_parameter_value().string_value
+        self.truth_name = self.get_parameter('truth_name').get_parameter_value().string_value
         sync_queue_size = self.get_parameter('sync_queue_size').get_parameter_value().integer_value
         sync_slop = self.get_parameter('sync_slop').get_parameter_value().double_value
         report_period_sec = self.get_parameter('report_period_sec').get_parameter_value().double_value
         write_csv = self.get_parameter('write_csv').get_parameter_value().bool_value
         csv_path = self.get_parameter('csv_path').get_parameter_value().string_value
 
-        self.sub_ekf = message_filters.Subscriber(
+        self.sub_target = message_filters.Subscriber(
             self,
             Odometry,
-            ekf_topic,
+            target_topic,
             qos_profile=qos_profile_sensor_data,
         )
-        self.sub_stereo = message_filters.Subscriber(
+        self.sub_truth = message_filters.Subscriber(
             self,
             Odometry,
-            stereo_topic,
+            truth_topic,
             qos_profile=qos_profile_sensor_data,
         )
 
-        # pairs EKF and stereo messages with close timestamps (within sync_slop seconds) 
+        # Pairs estimated odometry and ground-truth messages with close timestamps.
         self.sync = message_filters.ApproximateTimeSynchronizer(
-            [self.sub_ekf, self.sub_stereo],
+            [self.sub_target, self.sub_truth],
             queue_size=int(sync_queue_size),
             slop=float(sync_slop),
         )
@@ -97,18 +110,18 @@ class OdomComparator(Node):
             self._csv_writer = csv.writer(self._csv_file)
             csv_header = [
                 't',
-                'ekf_x',
-                'ekf_y',
-                'ekf_yaw',
-                'ekf_vx',
-                'ekf_vy',
-                'ekf_wz',
-                'stereo_x',
-                'stereo_y',
-                'stereo_yaw',
-                'stereo_vx',
-                'stereo_vy',
-                'stereo_wz',
+                'target_x',
+                'target_y',
+                'target_yaw',
+                'target_vx',
+                'target_vy',
+                'target_wz',
+                'truth_x',
+                'truth_y',
+                'truth_yaw',
+                'truth_vx',
+                'truth_vy',
+                'truth_wz',
                 'ex',
                 'ey',
                 'eyaw',
@@ -123,32 +136,32 @@ class OdomComparator(Node):
             )
 
         self.get_logger().info(
-            f'Comparing EKF odom [{ekf_topic}] vs stereo odom [{stereo_topic}]'
+            f'Comparing target [{target_topic}] vs truth [{truth_topic}]'
         )
 
-    def synced_callback(self, ekf_msg: Odometry, stereo_msg: Odometry):
-        ekf_x = ekf_msg.pose.pose.position.x
-        ekf_y = ekf_msg.pose.pose.position.y
-        stereo_x = stereo_msg.pose.pose.position.x
-        stereo_y = stereo_msg.pose.pose.position.y
+    def synced_callback(self, target_msg: Odometry, truth_msg: Odometry):
+        target_x = target_msg.pose.pose.position.x
+        target_y = target_msg.pose.pose.position.y
+        truth_x = truth_msg.pose.pose.position.x
+        truth_y = truth_msg.pose.pose.position.y
 
-        ex = ekf_x - stereo_x
-        ey = ekf_y - stereo_y
+        ex = target_x - truth_x
+        ey = target_y - truth_y
 
-        yaw_ekf = yaw_from_quaternion(ekf_msg.pose.pose.orientation)
-        yaw_stereo = yaw_from_quaternion(stereo_msg.pose.pose.orientation)
-        eyaw = wrap_angle(yaw_ekf - yaw_stereo)
+        yaw_target = yaw_from_quaternion(target_msg.pose.pose.orientation)
+        yaw_truth = yaw_from_quaternion(truth_msg.pose.pose.orientation)
+        eyaw = wrap_angle(yaw_target - yaw_truth)
 
-        ekf_vx = ekf_msg.twist.twist.linear.x
-        ekf_vy = ekf_msg.twist.twist.linear.y
-        ekf_wz = ekf_msg.twist.twist.angular.z
-        stereo_vx = stereo_msg.twist.twist.linear.x
-        stereo_vy = stereo_msg.twist.twist.linear.y
-        stereo_wz = stereo_msg.twist.twist.angular.z
+        target_vx = target_msg.twist.twist.linear.x
+        target_vy = target_msg.twist.twist.linear.y
+        target_wz = target_msg.twist.twist.angular.z
+        truth_vx = truth_msg.twist.twist.linear.x
+        truth_vy = truth_msg.twist.twist.linear.y
+        truth_wz = truth_msg.twist.twist.angular.z
 
-        evx = ekf_vx - stereo_vx
-        evy = ekf_vy - stereo_vy
-        ewz = ekf_wz - stereo_wz
+        evx = target_vx - truth_vx
+        evy = target_vy - truth_vy
+        ewz = target_wz - truth_wz
 
         errors = {
             'x': ex,
@@ -165,21 +178,21 @@ class OdomComparator(Node):
             self.sum_sq_err[key] += value * value
 
         if self._csv_writer is not None:
-            stamp = ekf_msg.header.stamp.sec + 1e-9 * ekf_msg.header.stamp.nanosec
+            stamp = target_msg.header.stamp.sec + 1e-9 * target_msg.header.stamp.nanosec
             self._csv_writer.writerow([
                 stamp,
-                ekf_x,
-                ekf_y,
-                yaw_ekf,
-                ekf_vx,
-                ekf_vy,
-                ekf_wz,
-                stereo_x,
-                stereo_y,
-                yaw_stereo,
-                stereo_vx,
-                stereo_vy,
-                stereo_wz,
+                target_x,
+                target_y,
+                yaw_target,
+                target_vx,
+                target_vy,
+                target_wz,
+                truth_x,
+                truth_y,
+                yaw_truth,
+                truth_vx,
+                truth_vy,
+                truth_wz,
                 ex,
                 ey,
                 eyaw,
@@ -188,7 +201,7 @@ class OdomComparator(Node):
                 ewz,
             ])
 
-    #print the mean error and RMSE for position, orientation, and velocity
+    # Print the mean error and RMSE for position, orientation and velocity.
     def report(self):
         if self.count == 0:
             self.get_logger().warn('No synchronized odometry samples yet.')
@@ -223,7 +236,7 @@ class OdomComparator(Node):
         std_wz = math.sqrt(var_wz)
 
         self.get_logger().info(
-            'N=%d | mean err: x=%.3f m y=%.3f m yaw=%.2f deg | '
+            'N=%d | %s-%s mean err: x=%.3f m y=%.3f m yaw=%.2f deg | '
             'RMSE: x=%.3f m y=%.3f m yaw=%.2f deg | '
             'STD: x=%.3f m y=%.3f m yaw=%.2f deg | '
             'VAR: x=%.5f y=%.5f yaw=%.5f rad^2 | '
@@ -233,6 +246,8 @@ class OdomComparator(Node):
             'VAR vel: vx=%.5f vy=%.5f wz=%.5f'
             % (
                 self.count,
+                self.target_name,
+                self.truth_name,
                 mean_x,
                 mean_y,
                 math.degrees(mean_yaw),

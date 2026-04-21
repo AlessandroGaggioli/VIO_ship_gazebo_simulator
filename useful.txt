@@ -1,17 +1,18 @@
+BUILD AND LAUNCH 
+
 ==============================================================
 To build the package and clean the CMake cache:
 
 colcon build --packages-select ship_gazebo --cmake-clean-cache
-
 ===============================================================
 
-==========================================================
+====================================================
 Run the launch file: 
 
     ros2 launch ship_gazebo ship_sim.launch.py 
         mode:=mapping/navigation/navigation_no_comp
         obstacles:=false/true
-===========================================================
+====================================================
 
 =================================================================
 Run the launch file and save the terminal output in a txt file: 
@@ -19,23 +20,25 @@ Run the launch file and save the terminal output in a txt file:
     ros2 launch ship_gazebo ship_sim.launch.py 2>&1 | tee log.txt
 =================================================================
 
-=================================================================
+TELEOPERATE (CMD_VEL)
+=========================================================
 Run the teleop key: 
 
     ros2 run teleop_twist_keyboard teleop_twist_keyboard
-=================================================================
+=========================================================
 
-=================================================================
+RVIZ2, MAP SAVING, IMAGE VIEWER, CHECKING TOPICS AND NODES
+==========================
 run rviz2 to see the map: 
 
     ros2 run rviz2 rviz2
-=================================================================
+=========================
 
-=================================================================
+=========================================================
 run to the save the map: 
 
     ros2 run nav2_map_server map_saver_cli -f <filename>
-=================================================================
+=========================================================
 
 ============================================
 run the rqt image viewer: 
@@ -43,34 +46,38 @@ run the rqt image viewer:
     ros2 run rqt_image_view rqt_image_view
 ============================================
 
-=======================================================================
+=========================================================================
 check active nodes or topics: 
 
 ros2 node list | grep -E "<node_name_1>|<node_name_2>|<node_name_3>"
 ros2 topic list | grep -E "<topic_name_1>|<topic_name_2>|<topic_name_3>"
-=======================================================================
+=========================================================================
 
-=================================================================
+===========================
 check hz of a topic:
 
 ros2 topic hz <topic_name>
-=================================================================
+===========================
 
-=================================================================
+========================================================
 check the tf tree:
 
 ros2 run tf2_ros tf2_echo <source_frame> <target_frame>
-=================================================================
+========================================================
 
-==================================================================
+
+COMPARE ODOMETRY OUTPUTS
+================================================================================================
 to compares the EKF and stereo odometry outputs, run the odom_comparator node:
 
-    ros2 run ship_gazebo odom_comparator --ros-args -p write_csv:=true -p csv_path:=<csv_path>
+    ros2 run ship_gazebo odom_comparator.py --ros-args -p target_topic:=/<odom_topic> -p truth_topic:=/ground_truth/odom -p target_name:=<odom_type_name> -p truth_name:=gt -p write_csv:=true -p csv_path:=/home/alienware/ship_ws/bags/<filename>.csv
 
-remember to comment out the odom1 in the ekf_odom.yaml file!!! 
-==================================================================
 
-==================================================================
+to plot: (cd into tools)
+    ros2 run ship_gazebo odom_comparator.py --ros-args -p target_topic:=/<odom_topic> -p truth_topic:=/ground_truth/odom -p target_name:=<odom_type_name> -p truth_name:=gt -p write_csv:=true -p csv_path:=/home/alienware/ship_ws/bags/<filename>.csv
+================================================================================================
+
+============================================================================
 Single TF owner profiles (avoid TF conflicts on odom->base_footprint)
 
 Rule:
@@ -106,4 +113,17 @@ Quick checks:
     ros2 run tf2_ros tf2_echo odom base_footprint
     ros2 param get /stereo_odometry publish_tf
     ros2 param get /ekf_filter_node publish_tf
-==================================================================
+============================================================================
+
+BAGS 
+============================================================
+To record a rosbag:
+    ros2 bag record -a -o <bag_name> (-a for all topics, -o for output bag name)
+    ros2 bag record <topic-names> (topic-names can be space-separated list of specific topics to record)
+============================================================
+
+=========================================================
+To play a rosbag:
+    ros2 bag play <bag_name> (plays the bag at normal speed)
+    ros2 bag play <bag_name> --rate <playback_rate> (plays the bag at specified rate, e.g., --rate 0.5 for half speed)
+=========================================================

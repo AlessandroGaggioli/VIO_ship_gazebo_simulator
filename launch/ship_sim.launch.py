@@ -44,6 +44,7 @@ def get_mode_config(mode_str):
         }
     else:
         raise ValueError(f"Unknown mode: {mode_str}")
+    
 
 #=======================================================================
 # Main function to generate the launch description
@@ -52,6 +53,7 @@ def generate_launch_description():
 
     mode_str = 'navigation'
     debug_camera = False
+    odom_type = 'loosely'
 
     # Ensure there is a single simulation/clock source.
     # Stale gz/bridge processes from previous runs can cause /clock jumps,
@@ -65,8 +67,11 @@ def generate_launch_description():
             mode_str = arg.split(':=')[1]  # get the value after ':=' and set it to mode_str
         if 'debug_camera:=' in arg:
             debug_camera = arg.split(':=')[1].lower() == 'true' # convert to boolean and set to debug_camera
+        if 'odom_type:=' in arg:
+            odom_type = arg.split(':=')[1] # set the odometry type based on the argument
     
-    config = get_mode_config(mode_str) # get the configuration parameters based on the selected mode
+    # get the configuration parameters based on the selected mode
+    config = get_mode_config(mode_str) 
 
     # Clean up old Gazebo GUI config files to prevent issues with the simulator
     # Gazebo can sometimes crash if old GUI config files are present, so we remove them before launching the simulator
@@ -85,7 +90,6 @@ def generate_launch_description():
     pkg_prefix = get_package_prefix('ship_gazebo') # get the prefix (install) directory of the ship_gazebo package, where the compiled plugins are located
     plugin_path = os.path.join(pkg_prefix, 'lib', 'ship_gazebo') # path to the Gazebo plugins compiled from the ship_gazebo package
     sdf_dir = os.path.join(pkg_share, 'worlds') # directory where the SDF world templates are located.
-
 
     sdf_em = os.path.join(sdf_dir, 'ship_world_dynamic.sdf.em')
     sdf_out = os.path.join(sdf_dir, 'ship_world_dynamic.sdf')
@@ -107,6 +111,7 @@ def generate_launch_description():
     # which is needed for the IMU compensator node to adjust the IMU readings 
     # based on the robot's initial position in the world
     def get_robot_spawn_from_sdf(sdf_path):
+
         try:
             # Reads the file line by line and ignores initial empty lines
             with open(sdf_path, 'r') as f:
@@ -126,6 +131,7 @@ def generate_launch_description():
                     pose_text = include_tag.find("pose").text
                     coords = [float(x) for x in pose_text.split()]
                     return coords[0], coords[1], coords[2]
+                
         except Exception as e: 
             print(f"error reading sdf: {e}")
             
@@ -134,7 +140,6 @@ def generate_launch_description():
     #Extract the robot's spawn position. 
     sx, sy, sz = get_robot_spawn_from_sdf(sdf_out)
     print(f"DEBUG: Robot spawn detected from SDF -> X:{sx}, Y:{sy}, Z:{sz}")
-
 
     #=======================================================
     # ROS 2 Nodes for Camera Processing and IMU Compensation
@@ -148,7 +153,9 @@ def generate_launch_description():
     cam_z = '0.11'
     camera_params_path = os.path.join(pkg_share, 'config', 'stereo_params.yaml') # path to the camera parameters file
 
+    #==============================================================================
     # Static transform from base_footprint to the left and right cameras and the IMU
+    #==============================================================================
     left_camera_tf = Node( 
         package='tf2_ros',
         executable='static_transform_publisher',
@@ -184,8 +191,13 @@ def generate_launch_description():
             '--child-frame-id', 'imu_link'
         ]
     )
+    #==============================================================================
+    #=============================================================================
 
+    #==============================================================================
     # Nodes for rectifying the left and right camera images using the image_proc package
+    #==============================================================================
+
     left_camera_rect = Node(
         package='image_proc',
         executable='rectify_node',
@@ -212,7 +224,9 @@ def generate_launch_description():
         output='screen'
     )
 
+    #================================================================================
     # Node for generating the disparity map from the rectified left and right camera images using the stereo_image_proc package
+    #==============================================================================
     disparity_map = Node (
         package='stereo_image_proc',
         executable='disparity_node',
@@ -230,7 +244,10 @@ def generate_launch_description():
         output='screen'
     )
 
+    #==============================================================================
     # Node for visualizing the rectified stereo images and the disparity map using the stereo_view node from the image_view package
+    #==============================================================================
+
     stereo_view = Node(
         package='image_view',
         executable='stereo_view',
@@ -251,7 +268,10 @@ def generate_launch_description():
         output='screen'
     )
 
+    #========================================================================================
     # Node for compensating the IMU readings based on the robot's spawn position in the world
+    #=========================================================================================
+
     compensate_imu = Node(
         package='ship_gazebo',
         executable='imu_compensator.py',
@@ -269,43 +289,67 @@ def generate_launch_description():
     # Odometry Nodes 
     #=======================================
 
-    #ekf proprioceptive odometry parameters file, to configure the EKF node for fusing the IMU data and the wheel data. 
+    #=========================================================================
+    # EKF node for fusing wheel odometry, IMU data, and pure stereo odometry
+    #=========================================================================
     ekf_odom_params_path = os.path.join(pkg_share, 'config', 'ekf_odom.yaml')
 
     ekf_odom_node = Node(
-    package='robot_localization',
-    executable='ekf_node',
-    name='ekf_filter_node',
-    output='screen',
-    parameters=[ekf_odom_params_path]
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
+        output='screen',
+        parameters=[ekf_odom_params_path]
     )
 
-    # ---------------------------------------------------------
-    # Stereo odometry + RTAB-Map are intentionally disabled now
-    # We are validating EKF-only odometry (wheel + IMU) first.
-    # ---------------------------------------------------------
-
+    #===========================================================================
+    # Node for generating odometry from the stereo camera data using the rtabmap_odom package
+    #===========================================================================
     rtabmap_parameters_path = os.path.join(pkg_share, 'config', 'rtabmap_params.yaml')
 
-    stereo_odom_remappings = [
-            ('left/image_rect', '/camera/left/image_rect'),
-            ('right/image_rect', '/camera/right/image_rect'),
-            ('left/camera_info', '/camera/left/camera_info'),
-            ('right/camera_info', '/camera/right/camera_info'),
-            ('odom', '/stereo_odom'),
-            ('odom_local_map', '/stereo_odom_local_map'),
-            ('imu','/robot/imu/compensated') # use the compensated IMU readings for stereo odometry for VINS-Fusion
-    ]
+    if odom_type in ('loosely', 'tight'): 
+        stereo_odom_remappings = [ # map topic to enable imu data for stereo odometry
+                ('left/image_rect', '/camera/left/image_rect'),
+                ('right/image_rect', '/camera/right/image_rect'),
+                ('left/camera_info', '/camera/left/camera_info'),
+                ('right/camera_info', '/camera/right/camera_info'),
+                ('odom', '/stereo_odom'),
+                ('odom_local_map', '/stereo_odom_local_map'),
+                ('imu','/robot/imu/compensated') 
+        ]
+        stereo_odom_params = { # use imu data for stereo odometry
+            'subscribe_imu': True,
+            'wait_imu_to_init': True,
+            'guess_frame_id': 'odom',
+        }
 
+    elif odom_type == 'ekf': # use pure stereo odometry as input to the EKF, without IMU data
+        stereo_odom_remappings = [
+                ('left/image_rect', '/camera/left/image_rect'),
+                ('right/image_rect', '/camera/right/image_rect'),
+                ('left/camera_info', '/camera/left/camera_info'),
+                ('right/camera_info', '/camera/right/camera_info'),
+                ('odom', '/stereo_odom'),
+                ('odom_local_map', '/stereo_odom_local_map'),
+        ]
+        stereo_odom_params = { # do not use imu data for stereo odometry
+            'subscribe_imu': False,
+            'wait_imu_to_init': False,
+            'guess_frame_id': '',
+        }
+    else:
+        raise ValueError(f"Unknown odom_type: {odom_type}. Allowed values: loosely, tight, ekf")
+    
     stereo_odometry_node = Node(
         package='rtabmap_odom',
         executable='stereo_odometry',
         name='stereo_odometry',
         output='screen',
-        parameters=[rtabmap_parameters_path],
+        parameters=[rtabmap_parameters_path, {'use_sim_time': True}, stereo_odom_params],
         remappings=stereo_odom_remappings
     )
 
+    # Node for publishing the TF from the stereo odometry pose 
     stereo_odom_tf_publisher_node = Node(
         package='ship_gazebo',
         executable='stereo_odom_tf_publisher.py',
@@ -318,6 +362,13 @@ def generate_launch_description():
             'child_frame_id': 'base_footprint_stereo'
         }]
     )
+
+    delayed_stereo_odometry_node = TimerAction(period=5.0, actions=[stereo_odometry_node])
+    delayed_stereo_odom_tf_publisher_node = TimerAction(period=7.0, actions=[stereo_odom_tf_publisher_node])
+
+    #==============================================================================
+    # Node for SLAM and Navigation (RTAB-Map and Nav2)
+    #==============================================================================
 
     # rtabmap_slam_remappings = [
     #         ('left/image_rect', '/camera/left/image_rect'),
@@ -339,8 +390,6 @@ def generate_launch_description():
     #     arguments=['-d']
     # )
 
-    delayed_stereo_odometry_node = TimerAction(period=3.0, actions=[stereo_odometry_node])
-    delayed_stereo_odom_tf_publisher_node = TimerAction(period=4.0, actions=[stereo_odom_tf_publisher_node])
     # delayed_rtabmap_slam_node = TimerAction(period=7.0, actions=[rtabmap_slam_node])
 
 
@@ -356,9 +405,9 @@ def generate_launch_description():
     #     output='screen'
     # )
 
-    # #==============================
+    # #=====================================
     # # Nodes for Exploration and Navigation
-    # # #==============================
+    # # #===================================
 
     # # Node for the explore_lite package, which will perform autonomous exploration of the environment using the occupancy grid generated by RTAB-Map.
     # # This node will be launched only in the mapping mode to allow the robot to explore and
@@ -395,9 +444,9 @@ def generate_launch_description():
     # # # Delay Nav2 so bridge + odom TF are available before activation.
     # delayed_nav2_launch = TimerAction(period=4.0, actions=[nav2_launch])
 
-    #=================================
+    #===================================
     # Nodes for Map Saving and Loading
-    #=================================
+    #===================================
 
     # # Map saver service - saves the occupancy grid to a file
     # # Used in mapping mode to persist the generated map
@@ -431,6 +480,10 @@ def generate_launch_description():
     #     }]
     # )
 
+    #=======================================================
+    # Rviz Node for Visualization
+    #=======================================================
+
     # Rviz node for visualizing the robot, the map, and the navigation process. 
     # rviz_config_path = os.path.join(get_package_share_directory('nav2_bringup'),'rviz','nav2_default_view.rviz')
     # rviz_cmd = Node(
@@ -448,8 +501,10 @@ def generate_launch_description():
     #=============================
 
     nodes_list = [
+
         DeclareLaunchArgument('mode', default_value='navigation',description='Select the mode of operation: mapping, navigation_no_comp, navigation'),
         DeclareLaunchArgument('debug_camera', default_value='false', description='Enable or disable debug camera nodes (stereo_view and disparity_map)'),
+        DeclareLaunchArgument('odom_type',default_value='loosely', description='Select the odometry type to use: loosely (stereo+imu+guess) or ekf (wheel+imu+stereo in EKF). tight is alias of loosely.'),
 
         AppendEnvironmentVariable(
             name='GZ_SIM_SYSTEM_PLUGIN_PATH',
@@ -460,14 +515,16 @@ def generate_launch_description():
             name='GZ_SIM_RESOURCE_PATH',
             value='/opt/ros/jazzy/share/turtlebot3_gazebo/models',
         ),
-        #execute the Gazebo simulator with the generated SDF file <sdf_out>
+
+        #Execute the Gazebo simulator with the generated SDF file <sdf_out>
         ExecuteProcess(
             cmd=[
                 'gz', 'sim','-r', sdf_out
             ],
             output='screen'
         ),
-        # execute the ros_gz_bridge parameter_bridge to bridge the topics between Gazebo and ROS 2
+
+        #Execute the ros_gz_bridge parameter_bridge to bridge the topics between Gazebo and ROS 2
         ExecuteProcess(
             cmd=[
                 'ros2', 'run', 'ros_gz_bridge', 'parameter_bridge',
@@ -483,18 +540,17 @@ def generate_launch_description():
         left_camera_rect, # node for rectifying the left camera image
         right_camera_rect, # node for rectifying the right camera image
         compensate_imu, # node for compensating the IMU readings w.r.t. the ship motion
-        ekf_odom_node, # node for EKF-based odometry using wheel and IMU data
-        delayed_stereo_odometry_node, # node for stereo odometry using the rectified camera images, delayed to ensure the cameras are up and running before starting
-        delayed_stereo_odom_tf_publisher_node, # publish stereo odom TF on a dedicated child frame for visualization/debug
-        # delayed_rtabmap_slam_node,
-        # reset_localization_node,
+        delayed_stereo_odometry_node, # node for generating odometry from the stereo camera data, delayed to ensure cameras and bridge are up
+        delayed_stereo_odom_tf_publisher_node # node for publishing the TF from the stereo odometry pose, delayed to ensure stereo odometry is up
+        #delayed_rtabmap_slam_node,
+        #reset_localization_node,
         #rviz_cmd
     ]
 
-    # Conditionally add nodes for exploration and navigation based on the selected mode
-
-    #append the stereo view and disparity map nodes only if debug_camera is enabled
-    if debug_camera:
+    if odom_type == 'ekf':
+        nodes_list.append(ekf_odom_node) # run EKF only when selected as odometry architecture
+   
+    if debug_camera:  # append the stereo view and disparity map nodes only if debug_camera is enabled
         nodes_list.append(rqt_image_view)
         nodes_list.append(stereo_view)
         nodes_list.append(disparity_map)
