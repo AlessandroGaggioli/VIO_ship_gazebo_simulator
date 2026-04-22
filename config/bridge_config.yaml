@@ -19,7 +19,7 @@
   ros_type_name: sensor_msgs/msg/Image
   gz_type_name: gz.msgs.Image
   direction: GZ_TO_ROS
-  lazy: false
+  lazy: true
 
   # second internal Camera gazebo
 - ros_topic_name: /camera/second_int_corridor_camera/image
@@ -27,7 +27,7 @@
   ros_type_name: sensor_msgs/msg/Image
   gz_type_name: gz.msgs.Image
   direction: GZ_TO_ROS
-  lazy: false
+  lazy: true
 
   # external camera gazebo
 - ros_topic_name: /camera/ext_corridor_camera/image
@@ -35,7 +35,7 @@
   ros_type_name: sensor_msgs/msg/Image
   gz_type_name: gz.msgs.Image
   direction: GZ_TO_ROS
-  lazy: false
+  lazy: true
 
 # ---------------------------------------------
 # STEREO CAMERAS (VIO)

@@ -53,12 +53,12 @@ def generate_launch_description():
 
     mode_str = 'navigation'
     debug_camera = False
-    odom_type = 'loosely'
+    odom_type = 'ekf'
 
     # Ensure there is a single simulation/clock source.
     # Stale gz/bridge processes from previous runs can cause /clock jumps,
     # which then break odometry, RTAB-Map and Nav2 behavior.
-    subprocess.run(['pkill', '-f', '^gz sim'], check=False)
+    subprocess.run(['pkill', '-f', 'gz sim'], check=False)
     subprocess.run(['pkill', '-f', 'ros_gz_bridge.*parameter_bridge'], check=False)
 
     # Parse command line arguments to get the mode settings
@@ -160,6 +160,9 @@ def generate_launch_description():
         package='tf2_ros',
         executable='static_transform_publisher',
         name='camera_left_tf',
+        parameters=[{
+            'use_sim_time': True
+        }],
         arguments=[
             '--x', cam_x, '--y', str(cam_y_offset), '--z', cam_z,
             '--roll', '-1.570796', '--pitch', '0', '--yaw', '-1.570796',
@@ -172,6 +175,9 @@ def generate_launch_description():
         package='tf2_ros',
         executable='static_transform_publisher',
         name='camera_right_tf',
+        parameters=[{
+            'use_sim_time': True
+        }],
         arguments=[
             '--x', cam_x, '--y', str(-cam_y_offset), '--z', cam_z,
             '--roll', '-1.570796', '--pitch', '0', '--yaw', '-1.570796',
@@ -184,6 +190,9 @@ def generate_launch_description():
         package='tf2_ros',
         executable='static_transform_publisher',
         name='imu_tf',
+        parameters=[{
+            'use_sim_time': True
+        }],
         arguments=[
             '--x', '0', '--y', '0', '--z', '0',
             '--roll', '0', '--pitch', '0', '--yaw', '0',
@@ -289,6 +298,29 @@ def generate_launch_description():
     # Odometry Nodes 
     #=======================================
 
+    #=============================================
+    # Stereo Synchronization Node by RTAB-Map (rtabmap_sync)
+    #==============================================
+
+    stereo_sync_node = Node(
+        package='rtabmap_sync',
+        executable='stereo_sync',
+        name='stereo_sync',
+        output='screen',
+        parameters=[{
+            'use_sim_time': True,
+            'approx_sync': True,
+            'queue_size': 10
+        }],
+        remappings=[
+            ('left/image_rect', '/camera/left/image_rect'),
+            ('right/image_rect', '/camera/right/image_rect'),
+            ('left/camera_info', '/camera/left/camera_info'),
+            ('right/camera_info', '/camera/right/camera_info'),
+            ('rgbd_image', '/stereo_camera/rgbd_image') # Il nuovo topic "impacchettato"
+        ]
+    )
+
     #=========================================================================
     # EKF node for fusing wheel odometry, IMU data, and pure stereo odometry
     #=========================================================================
@@ -306,17 +338,18 @@ def generate_launch_description():
     # Node for generating odometry from the stereo camera data using the rtabmap_odom package
     #===========================================================================
     rtabmap_parameters_path = os.path.join(pkg_share, 'config', 'rtabmap_params.yaml')
-
-    if odom_type in ('loosely', 'tight'): 
-        stereo_odom_remappings = [ # map topic to enable imu data for stereo odometry
-                ('left/image_rect', '/camera/left/image_rect'),
-                ('right/image_rect', '/camera/right/image_rect'),
-                ('left/camera_info', '/camera/left/camera_info'),
-                ('right/camera_info', '/camera/right/camera_info'),
-                ('odom', '/stereo_odom'),
-                ('odom_local_map', '/stereo_odom_local_map'),
-                ('imu','/robot/imu/compensated') 
+    stereo_odom_remappings = [ # map topic to enable imu data for stereo odometry
+                # ('left/image_rect', '/camera/left/image_rect'),
+                # ('right/image_rect', '/camera/right/image_rect'),
+                # ('left/camera_info', '/camera/left/camera_info'),
+                # ('right/camera_info', '/camera/right/camera_info'),
+                ('rgbd_image', '/stereo_camera/rgbd_image') # use the synchronized stereo image topic from rtabmap_sync
         ]
+
+    if odom_type in ('loosely'):
+        stereo_odom_remappings.append(('odom', '/stereo_odom'))
+        stereo_odom_remappings.append(('odom_local_map', '/stereo_odom_local_map'))
+        stereo_odom_remappings.append(('imu','/robot/imu/compensated'))
         stereo_odom_params = { # use imu data for stereo odometry
             'subscribe_imu': True,
             'wait_imu_to_init': True,
@@ -324,18 +357,13 @@ def generate_launch_description():
         }
 
     elif odom_type == 'ekf': # use pure stereo odometry as input to the EKF, without IMU data
-        stereo_odom_remappings = [
-                ('left/image_rect', '/camera/left/image_rect'),
-                ('right/image_rect', '/camera/right/image_rect'),
-                ('left/camera_info', '/camera/left/camera_info'),
-                ('right/camera_info', '/camera/right/camera_info'),
-                ('odom', '/stereo_odom'),
-                ('odom_local_map', '/stereo_odom_local_map'),
-        ]
+        stereo_odom_remappings.append(('odom', '/stereo_odom'))
+        stereo_odom_remappings.append(('odom_local_map', '/stereo_odom_local_map'))
         stereo_odom_params = { # do not use imu data for stereo odometry
             'subscribe_imu': False,
             'wait_imu_to_init': False,
             'guess_frame_id': '',
+            'publish_tf': True, 
         }
     else:
         raise ValueError(f"Unknown odom_type: {odom_type}. Allowed values: loosely, tight, ekf")
@@ -350,48 +378,57 @@ def generate_launch_description():
     )
 
     # Node for publishing the TF from the stereo odometry pose 
-    stereo_odom_tf_publisher_node = Node(
-        package='ship_gazebo',
-        executable='stereo_odom_tf_publisher.py',
-        name='stereo_odom_tf_publisher',
-        output='screen',
-        parameters=[{
-            'use_sim_time': True,
-            'odom_topic': '/stereo_odom',
-            'parent_frame_id': 'stereo_odom',
-            'child_frame_id': 'base_footprint_stereo'
-        }]
-    )
+    # stereo_odom_tf_publisher_node = Node(
+    #     package='ship_gazebo',
+    #     executable='stereo_odom_tf_publisher.py',
+    #     name='stereo_odom_tf_publisher',
+    #     output='screen',
+    #     parameters=[{
+    #         'use_sim_time': True,
+    #         'odom_topic': '/stereo_odom',
+    #         'parent_frame_id': 'stereo_odom',
+    #         'child_frame_id': 'base_footprint_stereo'
+    #     }]
+    # )
 
-    delayed_stereo_odometry_node = TimerAction(period=5.0, actions=[stereo_odometry_node])
-    delayed_stereo_odom_tf_publisher_node = TimerAction(period=7.0, actions=[stereo_odom_tf_publisher_node])
+    delayed_stereo_odometry_node = TimerAction(period=4.0, actions=[stereo_odometry_node])
+    #delayed_stereo_odom_tf_publisher_node = TimerAction(period=5.0, actions=[stereo_odom_tf_publisher_node])
 
     #==============================================================================
     # Node for SLAM and Navigation (RTAB-Map and Nav2)
     #==============================================================================
 
-    # rtabmap_slam_remappings = [
-    #         ('left/image_rect', '/camera/left/image_rect'),
-    #         ('right/image_rect', '/camera/right/image_rect'),
-    #         ('left/camera_info', '/camera/left/camera_info'),
-    #         ('right/camera_info', '/camera/right/camera_info'),
-    #         ('odom', '/stereo_odom'),
-    #         ('/odom', '/stereo_odom'),
-    #         ('~/odom', '/stereo_odom')
-    # ]
+    rtabmap_slam_remappings = [
+            # ('left/image_rect', '/camera/left/image_rect'),
+            # ('right/image_rect', '/camera/right/image_rect'),
+            # ('left/camera_info', '/camera/left/camera_info'),
+            # ('right/camera_info', '/camera/right/camera_info'),
+            ('rgbd_image', '/stereo_camera/rgbd_image'), # use the synchronized stereo image topic from rtabmap_sync
+            ('imu','/robot/imu/compensated'),
+    ]
 
-    # rtabmap_slam_node = Node(
-    #     package='rtabmap_slam',
-    #     executable='rtabmap',
-    #     name='rtabmap',
-    #     output='screen',
-    #     parameters=[rtabmap_parameters_path],
-    #     remappings=rtabmap_slam_remappings,
-    #     arguments=['-d']
-    # )
+    rtabmap_slam_parameters = [rtabmap_parameters_path,{'use_sim_time': True}]
 
-    # delayed_rtabmap_slam_node = TimerAction(period=7.0, actions=[rtabmap_slam_node])
+    if odom_type == 'ekf': 
+        rtabmap_slam_remappings.append(('odom', '/odometry/filtered'))
+        rtabmap_slam_parameters.append({'odom_frame_id': 'odom_ekf'})
+    elif odom_type == 'loosely':
+        rtabmap_slam_remappings.append(('odom', '/stereo_odom'))
+        rtabmap_slam_parameters.append({'odom_frame_id': 'stereo_odom'}) # set the odom frame id to match the stereo odometry output
+    else:
+        raise ValueError(f"Unknown odom_type: {odom_type}. Allowed values: loosely, tight, ekf")
+    
+    rtabmap_slam_node = Node(
+        package='rtabmap_slam',
+        executable='rtabmap',
+        name='rtabmap',
+        output='screen',
+        parameters=rtabmap_slam_parameters,
+        remappings=rtabmap_slam_remappings,
+        arguments=['-d']
+    )
 
+    delayed_rtabmap_slam_node = TimerAction(period=7.0, actions=[rtabmap_slam_node])
 
     # # Node for resetting localization after the ship stabilizes
     # # Waits for ShipMotionPlugin to stabilize joints (when robot gravity settles),
@@ -504,7 +541,7 @@ def generate_launch_description():
 
         DeclareLaunchArgument('mode', default_value='navigation',description='Select the mode of operation: mapping, navigation_no_comp, navigation'),
         DeclareLaunchArgument('debug_camera', default_value='false', description='Enable or disable debug camera nodes (stereo_view and disparity_map)'),
-        DeclareLaunchArgument('odom_type',default_value='loosely', description='Select the odometry type to use: loosely (stereo+imu+guess) or ekf (wheel+imu+stereo in EKF). tight is alias of loosely.'),
+        DeclareLaunchArgument('odom_type',default_value='ekf', description='Select the odometry type to use: loosely (stereo+imu+guess) or ekf (wheel+imu+stereo in EKF). tight is alias of loosely.'),
 
         AppendEnvironmentVariable(
             name='GZ_SIM_SYSTEM_PLUGIN_PATH',
@@ -529,7 +566,8 @@ def generate_launch_description():
             cmd=[
                 'ros2', 'run', 'ros_gz_bridge', 'parameter_bridge',
                 '--ros-args', '-p',
-                f'config_file:={bridge_config}'
+                f'config_file:={bridge_config}',
+                '-p','use_sim_time:=true',
             ],
             output='screen'
         ),
@@ -540,9 +578,10 @@ def generate_launch_description():
         left_camera_rect, # node for rectifying the left camera image
         right_camera_rect, # node for rectifying the right camera image
         compensate_imu, # node for compensating the IMU readings w.r.t. the ship motion
+        stereo_sync_node, # node for synchronizing the left and right camera images and packaging them into a single RGBD image topic
         delayed_stereo_odometry_node, # node for generating odometry from the stereo camera data, delayed to ensure cameras and bridge are up
-        delayed_stereo_odom_tf_publisher_node # node for publishing the TF from the stereo odometry pose, delayed to ensure stereo odometry is up
-        #delayed_rtabmap_slam_node,
+        #delayed_stereo_odom_tf_publisher_node, # node for publishing the TF from the stereo odometry pose, delayed to ensure stereo odometry is up
+        delayed_rtabmap_slam_node,
         #reset_localization_node,
         #rviz_cmd
     ]
