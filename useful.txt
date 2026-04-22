@@ -74,7 +74,7 @@ to compares the EKF and stereo odometry outputs, run the odom_comparator node:
 
 
 to plot: (cd into tools)
-    ros2 run ship_gazebo odom_comparator.py --ros-args -p target_topic:=/<odom_topic> -p truth_topic:=/ground_truth/odom -p target_name:=<odom_type_name> -p truth_name:=gt -p write_csv:=true -p csv_path:=/home/alienware/ship_ws/bags/<filename>.csv
+    python3 plot_odom_comparison.py --csv_path /home/alienware/ship_ws/bags/<filename>.csv 
 ================================================================================================
 
 ============================================================================

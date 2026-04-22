@@ -38,8 +38,8 @@
           </mesh>
         </geometry>
         <material>
-          <ambient>0.3 0.3 0.3 1.0</ambient>
-          <diffuse>0.3 0.3 0.3 1.0</diffuse>
+          <ambient>1 1 0 1.0</ambient>
+          <diffuse>1 1 0 1.0</diffuse>
         </material>
       </visual>
 
@@ -267,8 +267,8 @@
           </mesh>
         </geometry>
         <material>
-          <ambient>0.2 0.2 0.2 1.0</ambient>
-          <diffuse>0.2 0.2 0.2 1.0</diffuse>
+          <ambient>1 1 0 1.0</ambient>
+          <diffuse>1 1 0 1.0</diffuse>
         </material>
       </visual>
     </link>
@@ -329,8 +329,8 @@
           </mesh>
         </geometry>
         <material>
-          <ambient>0.2 0.2 0.2 1.0</ambient>
-          <diffuse>0.2 0.2 0.2 1.0</diffuse>
+          <ambient>1 1 0 1.0</ambient>
+          <diffuse>1 1 0 1.0</diffuse>
         </material>
       </visual>
     </link>
