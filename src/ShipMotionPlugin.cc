@@ -114,68 +114,28 @@ namespace ship_gazebo {
         double rollVel  = 0.0 ; 
         double pitchVel = 0.0 ; 
         double heaveVel = 0.0 ;
-
-        // Start motion only after: delay elapsed + joints stable for a continuous hold time
-        auto jointIsStable = [&](gz::sim::Entity joint) {
-            if (joint == gz::sim::kNullEntity)
-                return true;
-
-            auto *posComp = _ecm.Component<gz::sim::components::JointPosition>(joint);
-            auto *velComp = _ecm.Component<gz::sim::components::JointVelocity>(joint);
-
-            // If state is not yet available, wait one more update
-            if (!posComp || posComp->Data().empty() || !velComp || velComp->Data().empty())
-                return false;
-
-            const double pos = posComp->Data()[0];
-            const double vel = velComp->Data()[0];
-
-            return std::abs(pos) <= this->settlePosThreshold &&
-                   std::abs(vel) <= this->settleVelThreshold;
-        };
-
-        // Check if all joints are stable before starting motion
-        const bool allJointsStable =
-            jointIsStable(this->rollJoint) &&
-            jointIsStable(this->pitchJoint) &&
-            jointIsStable(this->heaveJoint);
-
-        if (!this->motionStarted && t >= this->spawnDelay) { // Check if we should start the stabilization process
-            if (allJointsStable) { // If all joints are stable, start or continue the settle timer
-                if (!this->settleTimerRunning) { // If the timer is not already running, start it
-                    this->settleTimerRunning = true;
-                    this->settleStartTime = t;
-                }
-
-                if ((t - this->settleStartTime) >= this->settleHoldTime) { // If joints have been stable for the required hold time, start the motion
-                    this->motionStarted = true;
-                    this->motionStartTime = t;
-                    printf("[ShipMotionPlugin] Ship stabilized, starting motion\n");
-                }
-            } else { // If any joint is not stable, reset the settle timer
-                this->settleTimerRunning = false;
-            }
-        }
-
-        if(this->motionStarted) { 
-            double t_motion = t - this->motionStartTime ; //time since motion started
+        
+       if(t>=3) {
+            double t_motion = t - 2.0 ; 
             
             // --- START RAMP-UP ---
-
+            double rampDuration = 5.0; // Duration of the ramp in seconds
+            double rampFactor = 1.0;   // default multiplier (100% of the force)
+            
             // If we are in the first 5 seconds of motion, the factor rises from 0 to 1 linearly
-            if (t_motion < this->rampDuration) {
-                this->rampFactor = t_motion / this->rampDuration;
+            if (t_motion < rampDuration) {
+                rampFactor = t_motion / rampDuration;
             }
             // --- END RAMP-UP ---
 
             // Apply the ramp factor to the amplitudes for a smooth start
-            rollPos = this->rampFactor * this->rollAmplitude * std::sin(2.0*M_PI*this->rollFrequency*t_motion+this->rollPhase) ; 
-            pitchPos = this->rampFactor * this->pitchAmplitude * std::sin(2.0*M_PI*this->pitchFrequency*t_motion+this->pitchPhase) ; 
-            heavePos = this->rampFactor * this->heaveAmplitude * std::sin(2.0*M_PI*this->heaveFrequency*t_motion+this->heavePhase) ; 
+            rollPos = rampFactor * this->rollAmplitude * std::sin(2.0*M_PI*this->rollFrequency*t_motion+this->rollPhase) ; 
+            pitchPos = rampFactor * this->pitchAmplitude * std::sin(2.0*M_PI*this->pitchFrequency*t_motion+this->pitchPhase) ; 
+            heavePos = rampFactor * this->heaveAmplitude * std::sin(2.0*M_PI*this->heaveFrequency*t_motion+this->heavePhase) ; 
 
-            rollVel  = this->rampFactor * this->rollAmplitude  * 2.0*M_PI*this->rollFrequency * std::cos(2.0*M_PI*this->rollFrequency*t_motion  + this->rollPhase);
-            pitchVel = this->rampFactor * this->pitchAmplitude * 2.0*M_PI*this->pitchFrequency * std::cos(2.0*M_PI*this->pitchFrequency*t_motion + this->pitchPhase);
-            heaveVel = this->rampFactor * this->heaveAmplitude * 2.0*M_PI*this->heaveFrequency * std::cos(2.0*M_PI*this->heaveFrequency*t_motion + this->heavePhase);
+            rollVel  = rampFactor * this->rollAmplitude  * 2.0*M_PI*this->rollFrequency * std::cos(2.0*M_PI*this->rollFrequency*t_motion  + this->rollPhase);
+            pitchVel = rampFactor * this->pitchAmplitude * 2.0*M_PI*this->pitchFrequency * std::cos(2.0*M_PI*this->pitchFrequency*t_motion + this->pitchPhase);
+            heaveVel = rampFactor * this->heaveAmplitude * 2.0*M_PI*this->heaveFrequency * std::cos(2.0*M_PI*this->heaveFrequency*t_motion + this->heavePhase);
         }
         
         // step 4 - Custom PD-Controller -- method to control a joint (force command given target position and velocity)

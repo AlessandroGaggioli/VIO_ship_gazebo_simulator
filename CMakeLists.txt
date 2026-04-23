@@ -52,11 +52,8 @@ install(DIRECTORY
 
 install(PROGRAMS
   src/imu_compensator.py
-  src/reset_localization.py
-  src/ground_truth_odometry.py
-  src/odom_comparator.py
-  src/stereo_odom_tf_publisher.py
   DESTINATION lib/${PROJECT_NAME}
 )
 
 ament_package()
+

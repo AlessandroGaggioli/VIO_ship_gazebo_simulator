@@ -30,9 +30,10 @@
     wait_for_transform: 1.0
 
     # ==========================================
-    # PARAMETRI CORE RTAB-MAP (Libreria C++)
+    # PARAMETRI CORE RTAB-MAP 
     # ==========================================
     # Modalità Mapping (SLAM)
+    Rtabmap/PublishPdf: 'true'
     Mem/IncrementalMemory: 'true'
     Mem/InitWMWithAllNodes: 'false'
     

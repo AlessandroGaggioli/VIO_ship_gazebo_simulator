@@ -147,6 +147,10 @@ class ImuCompensator(Node):
         self.offset_y = self.get_parameter('spawn_y').value
         self.offset_z = self.get_parameter('spawn_z').value
 
+        # #TF
+        # self.tf_buffer = Buffer() 
+        # self.tf_listener = TransformListener(self.tf_buffer,self)
+
         #Init state class
         self.ship = ShipState()
         self.robot = RobotState()
@@ -244,6 +248,25 @@ class ImuCompensator(Node):
             msg.angular_velocity.y,
             msg.angular_velocity.z
         ])
+
+        # #TF transform from robot and ship 
+        # try:
+        #     # Transform: of robot respect to ship
+        #     # lookup_transform(target_frame, source_frame, time)
+        #     t_robot_ship = self.tf_buffer.lookup_transform( 
+        #         self.ship.msg.header.frame_id,
+        #         msg.header.frame_id ,
+        #         rclpy.time.Time()
+        #     )
+        # except Exception as e:
+        #     self.get_logger().warn(f"Errore TF: {e}", throttle_duration_sec=2.0)
+        #     return
+        
+        # # Update robot position and orientation
+        # self.robot.pose_rel_ship.position.x = t_robot_ship.transform.translation.x
+        # self.robot.pose_rel_ship.position.y = t_robot_ship.transform.translation.y
+        # self.robot.pose_rel_ship.position.z = t_robot_ship.transform.translation.z 
+        # self.robot.pose_rel_ship.orientation = t_robot_ship.transform.rotation
 
         # Compute compensation of acceleration and omega
         if self.get_parameter('enable').value:
@@ -356,8 +379,7 @@ def main(args=None):
         pass
     finally:
         imu_compensator.destroy_node()
-        if rclpy.ok():
-            rclpy.shutdown()
+        rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

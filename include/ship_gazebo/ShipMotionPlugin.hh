@@ -81,20 +81,6 @@ namespace ship_gazebo {
         double Kp{1666666.6} ; 
         double Kd{158333.3} ; 
         double dt{0.0005} ; 
-
-        // Stabilization gate before starting periodic motion
-        double spawnDelay{1.0} ; //delay before starting motion, to allow joints to settle at initial position
-        double settlePosThreshold{0.01} ; //position error threshold to consider the joint as "settled" at initial position
-        double settleVelThreshold{0.01} ; //velocity threshold to consider the joint as "settled" at initial position
-        double settleHoldTime{1.0} ; //time duration for which the joints must remain "settled" before starting motion
-        bool settleTimerRunning{false} ; //flag to indicate if the settle timer is running
-        bool motionStarted{false} ; //flag to indicate if the motion has started
-        double settleStartTime{0.0} ; //time at which the settle timer started
-        double motionStartTime{0.0} ; //time at which the motion started
-
-        double rampDuration = 5.0; // Duration of the ramp in seconds
-        double rampFactor = 1.0;   // default multiplier (100% of the force)
-            
         
         
     }; //class ShipMotionPlugin

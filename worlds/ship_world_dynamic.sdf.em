@@ -143,7 +143,7 @@ revolute_friction = 10.0
 prismatic_damping  = 100.0
 prismatic_friction = 10.0
 
-max_step_size = 0.001
+max_step_size = 0.0005
 
 #===========================================================
 # ----- IMU ship parameters --------------------------------
