@@ -372,9 +372,10 @@ def generate_launch_description():
         stereo_odom_remappings.append(('odom', '/stereo_odom'))
         stereo_odom_remappings.append(('odom_local_map', '/stereo_odom_local_map'))
         stereo_odom_remappings.append(('imu','/robot/imu/compensated'))
-        stereo_odom_params = { # use imu data for stereo odometry
+        stereo_odom_params = { # use imu data for stereo odometry; wheel-odom TF seeds the pose guess
             'subscribe_imu': True,
             'wait_imu_to_init': True,
+            'guess_from_tf': True,   # use wheel-odom TF (odom -> base_footprint) as initial pose guess
             'guess_frame_id': 'odom',
         }
 
