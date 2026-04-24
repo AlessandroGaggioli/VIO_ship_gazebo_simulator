@@ -374,7 +374,8 @@ def generate_launch_description():
         stereo_odom_params = { # use imu data for stereo odometry
             'subscribe_imu': True,
             'wait_imu_to_init': True,
-            'guess_frame_id': 'odom',
+            'guess_frame_id': '', # do not use an external TF guess; nothing publishes odom->base_footprint in this mode
+            'publish_tf': True,   # publish stereo_odom->base_footprint TF so RTAB-Map can resolve the tree
         }
 
     elif odom_type == 'ekf': # use pure stereo odometry as input to the EKF, without IMU data
