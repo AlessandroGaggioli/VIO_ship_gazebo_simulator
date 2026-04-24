@@ -331,6 +331,7 @@ def generate_launch_description():
         parameters=[{
             'use_sim_time': True,
             'approx_sync': True,
+            'approx_sync_max_interval': 0.04, # allow up to 40 ms skew between left/right frames (Gazebo scheduler jitter)
             'queue_size': 10
         }],
         remappings=[
@@ -384,7 +385,8 @@ def generate_launch_description():
             'subscribe_imu': False,
             'wait_imu_to_init': False,
             'guess_frame_id': '',
-            'publish_tf': True, 
+            'publish_tf': True,
+            'guess_from_tf': False, # odom frame does not exist; EKF uses odom_ekf, so disable TF-based initial guess
         }
     else:
         raise ValueError(f"Unknown odom_type: {odom_type}. Allowed values: loosely, tight, ekf")
