@@ -372,11 +372,12 @@ def generate_launch_description():
         stereo_odom_remappings.append(('odom', '/stereo_odom'))
         stereo_odom_remappings.append(('odom_local_map', '/stereo_odom_local_map'))
         stereo_odom_remappings.append(('imu','/robot/imu/compensated'))
-        stereo_odom_params = { # use imu data for stereo odometry; wheel-odom TF seeds the pose guess
+        stereo_odom_params = { # stereo+IMU standalone: owns stereo_odom->base_footprint TF
             'subscribe_imu': True,
             'wait_imu_to_init': True,
-            'guess_from_tf': True,   # use wheel-odom TF (odom -> base_footprint) as initial pose guess
-            'guess_frame_id': 'odom',
+            'publish_tf': True,      # publish stereo_odom -> base_footprint so RTAB-Map chain is complete
+            'guess_from_tf': False,  # odom->base_footprint TF bridge is disabled; rely on IMU/stereo alone
+            'guess_frame_id': '',
         }
 
     elif odom_type == 'ekf': # use pure stereo odometry as input to the EKF, without IMU data
