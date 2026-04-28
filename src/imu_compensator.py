@@ -26,7 +26,6 @@ ros2 param set /imu_compensator enable true
 - To disable compensation, set the parameter to False:
 ros2 param set /imu_compensator enable false
 When compensation is disabled, the node will simply pass through the raw IMU data from the robot without applying any corrections based on the ship's motion. 
-
 """
 
 import rclpy
@@ -34,10 +33,10 @@ from rclpy.node import Node
 from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Imu
 from nav_msgs.msg import Odometry
-from tf2_ros import Buffer,TransformListener
 from scipy.spatial.transform import Rotation as R 
 from geometry_msgs.msg import Pose
 import numpy as np
+import message_filters
 
 
 #=============================================
@@ -74,50 +73,24 @@ class RobotState:
         self.omega = np.zeros(3)
         self.a_linear = np.zeros(3)
 
-"""
-source: 
-https://gist.github.com/moorepants/bfea1dc3d1d90bdad2b5623b4a9e9bee
+class EMAFilter3D: 
+    def __init__(self, cutoff_freq):
+        # Calcola la costante di tempo (tau) basata sulla frequenza di taglio
+        self.tau = 1.0 / (2.0 * np.pi * cutoff_freq)
+        self.state = np.zeros(3)
+        self.initialized = False
 
-David Winter filter. 
-Butterworth low-pass filter of the 2nd order. 
-Moorepants implmentation. 
-Changed to elaborate 3D signals. 
-"""
-
-class WinterLowPass3D: 
-    def __init__(self,cutoff_freq, sample_time):
-        #sampling frequency
-        sampling_rate = 1.0 / sample_time
-        #prewarping cutoff frequency
-        correction_factor = 1.0 
-        corrected_cutoff_freq = np.tan(np.pi * cutoff_freq / sampling_rate) / correction_factor
-
-        # coefficient 
-        K1 = np.sqrt(2) * corrected_cutoff_freq
-        K2 = corrected_cutoff_freq ** 2
-
-        #direct coefficients
-        self.a0 = K2 / (1 + K1 + K2)
-        self.a1 = 2 * self.a0
-        self.a2 = self.a0
-
-        K3 = self.a1 / K2
-        self.b1 = -self.a1 + K3
-        self.b2 = 1.0 -self.a1 - K3
-
-        self.x1 = np.zeros(3)
-        self.x2 = np.zeros(3)
-        self.y1 = np.zeros(3)
-        self.y2 = np.zeros(3)
-
-    def filter(self,x0):
-        y0 = (self.a0 * x0) + (self.a1 * self.x1) + (self.a2 * self.x2) + (self.b1 * self.y1) + (self.b2 * self.y2)
-        self.x2 = np.copy(self.x1)
-        self.x1 = np.copy(x0)
-        self.y2 = np.copy(self.y1)
-        self.y1 = np.copy(y0)
-        return y0
-
+    def filter(self, x, dt):
+        # Se è il primo valore o il dt è non valido, inizializza lo stato
+        if not self.initialized or dt <= 0:
+            self.state = np.copy(x)
+            self.initialized = True
+            return self.state
+        
+        # Calcola il fattore di smoothing (alpha) dinamico basato sul dt reale
+        alpha = 1.0 - np.exp(-dt / self.tau)
+        self.state = alpha * x + (1.0 - alpha) * self.state
+        return np.copy(self.state)
 
 #===============================================
 # ROS Node 
@@ -147,10 +120,6 @@ class ImuCompensator(Node):
         self.offset_y = self.get_parameter('spawn_y').value
         self.offset_z = self.get_parameter('spawn_z').value
 
-        # #TF
-        # self.tf_buffer = Buffer() 
-        # self.tf_listener = TransformListener(self.tf_buffer,self)
-
         #Init state class
         self.ship = ShipState()
         self.robot = RobotState()
@@ -161,58 +130,32 @@ class ImuCompensator(Node):
         self.robot.pose_rel_ship.position.z = self.offset_z
 
         #Subscribers 
-        self.sub_ship_imu = self.create_subscription(Imu,'/ship/imu/raw',self.ship_imu_cb,qos_profile_sensor_data)
-        self.sub_robot_odom = self.create_subscription(Odometry,'/robot/odom',self.robot_odom_cb,qos_profile_sensor_data)
-        self.sub_robot_imu = self.create_subscription(Imu,'/robot/imu/raw',self.robot_imu_cb,qos_profile_sensor_data)
+        # Subscribers sincronizzati per le IMU
+        self.sub_ship_imu = message_filters.Subscriber(self, Imu, '/ship/imu/raw', qos_profile=qos_profile_sensor_data)
+        self.sub_robot_imu = message_filters.Subscriber(self, Imu, '/robot/imu/raw', qos_profile=qos_profile_sensor_data)
 
+        # Sincronizzatore: elabora i dati solo quando arrivano due messaggi vicini nel tempo (tolleranza 0.05s)
+        self.ts = message_filters.ApproximateTimeSynchronizer(
+            [self.sub_ship_imu, self.sub_robot_imu],
+            queue_size=50,
+            slop=0.05
+        )
+        self.ts.registerCallback(self.sync_imu_cb)
+
+        # L'odometria può rimanere asincrona, serve solo ad aggiornare il vettore posizione
+        self.sub_robot_odom = self.create_subscription(Odometry, '/robot/odom', self.robot_odom_cb, qos_profile_sensor_data)
+        
         #Publisher
         self.pub_imu_comp = self.create_publisher(Imu,'/robot/imu/compensated',10)
 
         #gravity 
         self.g_vec=np.array([0.0,0.0,9.81])
 
-        # Filter for omega to reduce noise in the angular velocity measurements of the ship, which can be noisy and affect the compensation accuracy
-        self.omega_filter = WinterLowPass3D(cutoff_freq=2.0, sample_time=0.01)
-
-        # Filter for omega_dot to reduce noise in the differentiation of angular velocity
-        self.omega_dot_filter = WinterLowPass3D(cutoff_freq=1.0, sample_time=0.01)
-
-        # Filter for linear acceleration to reduce noise in the compensation (especially for high-frequency ship motions)
-        self.acc_filter = WinterLowPass3D(cutoff_freq=2.0, sample_time=0.005) 
+        # Filtri dinamici resistenti al jitter (EMA time-aware)
+        self.omega_filter = EMAFilter3D(cutoff_freq=2.0)
+        self.acc_filter = EMAFilter3D(cutoff_freq=2.0) 
 
         self.get_logger().info("Imu compensator initialized.")
-
-    def ship_imu_cb(self,msg):
-        self.ship.msg = msg 
-
-        # current angular velocity (omega) -- read from /ship/imu/raw
-        omega_current = np.array([
-            msg.angular_velocity.x,
-            msg.angular_velocity.y,
-            msg.angular_velocity.z
-        ])
-        
-        # save linear acceleration
-        self.ship.a_linear = np.array([
-            msg.linear_acceleration.x,
-            msg.linear_acceleration.y,
-            msg.linear_acceleration.z
-        ])
-
-        # current time instant 
-        time = msg.header.stamp.sec + msg.header.stamp.nanosec * 1e-9
-
-        # angular acceleration -- computation from omega and last_time 
-        if self.ship.last_time is not None:
-            dt = time - self.ship.last_time
-            if dt>0.005: # avoid too small dt that can cause noise in the differentiation
-                if self.ship.omega is not None: 
-                    raw_omega_dot = (omega_current - self.ship.omega) / dt
-                    self.ship.omega_dot = self.omega_dot_filter.filter(raw_omega_dot)
-
-        # Update omega and time
-        self.ship.omega = omega_current
-        self.ship.last_time = time 
 
     def robot_odom_cb(self,msg):
         # robot velocity (local frame)
@@ -231,81 +174,79 @@ class ImuCompensator(Node):
         self.robot.pose_rel_ship.position.z = msg.pose.pose.position.z + offset_z
         self.robot.pose_rel_ship.orientation = msg.pose.pose.orientation
 
-    def robot_imu_cb(self,msg):
-        if self.ship.msg is None or self.ship.omega is None: 
-            return
+    def sync_imu_cb(self, ship_msg, robot_msg):
+        time = robot_msg.header.stamp.sec + robot_msg.header.stamp.nanosec * 1e-9
+
+        omega_current = np.array([
+            ship_msg.angular_velocity.x,
+            ship_msg.angular_velocity.y,
+            ship_msg.angular_velocity.z
+        ])
         
-        # save linear acceleration and angular velocity
+        self.ship.a_linear = np.array([
+            ship_msg.linear_acceleration.x,
+            ship_msg.linear_acceleration.y,
+            ship_msg.linear_acceleration.z
+        ])
+
+        if self.ship.last_time is None:
+            self.ship.last_time = time
+            self.ship.omega = omega_current
+            return
+
+        dt = time - self.ship.last_time
+        
+        if dt < 0.001:
+            return
+
+        self.ship.last_time = time 
+
+        # --- DIFESA CONTRO IL LAG ESTREMO ---
+        # Se dt > 0.05s, Gazebo ha laggato. Congeliamo omega_dot per evitare picchi assurdi.
+        if dt <= 0.05:
+            self.ship.omega_dot = (omega_current - self.ship.omega) / dt
+        
+        self.ship.omega = omega_current 
 
         self.robot.a_linear = np.array([
-            msg.linear_acceleration.x, 
-            msg.linear_acceleration.y,
-            msg.linear_acceleration.z
+            robot_msg.linear_acceleration.x, 
+            robot_msg.linear_acceleration.y,
+            robot_msg.linear_acceleration.z
         ])
 
         self.robot.omega = np.array([
-            msg.angular_velocity.x,
-            msg.angular_velocity.y,
-            msg.angular_velocity.z
+            robot_msg.angular_velocity.x,
+            robot_msg.angular_velocity.y,
+            robot_msg.angular_velocity.z
         ])
 
-        # #TF transform from robot and ship 
-        # try:
-        #     # Transform: of robot respect to ship
-        #     # lookup_transform(target_frame, source_frame, time)
-        #     t_robot_ship = self.tf_buffer.lookup_transform( 
-        #         self.ship.msg.header.frame_id,
-        #         msg.header.frame_id ,
-        #         rclpy.time.Time()
-        #     )
-        # except Exception as e:
-        #     self.get_logger().warn(f"Errore TF: {e}", throttle_duration_sec=2.0)
-        #     return
-        
-        # # Update robot position and orientation
-        # self.robot.pose_rel_ship.position.x = t_robot_ship.transform.translation.x
-        # self.robot.pose_rel_ship.position.y = t_robot_ship.transform.translation.y
-        # self.robot.pose_rel_ship.position.z = t_robot_ship.transform.translation.z 
-        # self.robot.pose_rel_ship.orientation = t_robot_ship.transform.rotation
-
-        # Compute compensation of acceleration and omega
         if self.get_parameter('enable').value:
             acc_comp, omega_comp = self.compute_compensation()
         else: 
-            acc_comp,omega_comp = self.robot.a_linear, self.robot.omega
+            acc_comp, omega_comp = self.robot.a_linear, self.robot.omega
 
-        # filter the compensated acceleration to reduce noise
-        acc_comp = self.acc_filter.filter(acc_comp) 
-        # filter the compensated angular velocity to reduce noise
-        omega_comp = self.omega_filter.filter(omega_comp)
+        acc_comp = self.acc_filter.filter(acc_comp, dt) 
+        omega_comp = self.omega_filter.filter(omega_comp, dt)
         
-        # create and pub the compensation message
         comp_msg = Imu()
-        comp_msg.header= msg.header 
+        comp_msg.header = robot_msg.header 
         comp_msg.header.frame_id = "imu_link"  
-        comp_msg.orientation = msg.orientation
-        comp_msg.orientation_covariance = msg.orientation_covariance
+        comp_msg.orientation = self.robot.pose_rel_ship.orientation
+        comp_msg.orientation_covariance = robot_msg.orientation_covariance
 
         comp_msg.linear_acceleration.x = acc_comp[0]
         comp_msg.linear_acceleration.y = acc_comp[1]
         comp_msg.linear_acceleration.z = acc_comp[2]
-        comp_msg.linear_acceleration_covariance = msg.linear_acceleration_covariance
+        comp_msg.linear_acceleration_covariance = robot_msg.linear_acceleration_covariance
 
         comp_msg.angular_velocity.x = omega_comp[0]
         comp_msg.angular_velocity.y = omega_comp[1]
         comp_msg.angular_velocity.z = omega_comp[2]
-        comp_msg.angular_velocity_covariance = msg.angular_velocity_covariance
+        comp_msg.angular_velocity_covariance = robot_msg.angular_velocity_covariance
 
-            #pub 
-        self.pub_imu_comp.publish(comp_msg)
-
-        
+        self.pub_imu_comp.publish(comp_msg)        
         
     def compute_compensation(self): 
-
-        # Rotation matrix (to use it with Scipy method)
-
-        #rotation matrix of ship respect to robot 
         R_r_s = R.from_quat([
             self.robot.pose_rel_ship.orientation.x,
             self.robot.pose_rel_ship.orientation.y,
@@ -313,7 +254,6 @@ class ImuCompensator(Node):
             self.robot.pose_rel_ship.orientation.w
         ]).as_matrix()
 
-        #rotation matrix of robot respect to ship 
         R_s_r = R.from_quat([
             self.robot.pose_rel_ship.orientation.x,
             self.robot.pose_rel_ship.orientation.y,
@@ -321,11 +261,6 @@ class ImuCompensator(Node):
             self.robot.pose_rel_ship.orientation.w
         ]).inv().as_matrix()
 
-        #==================================================================
-        # computation of apparent accelerations ===========================
-        #==================================================================
-
-        # tangential acceleration
         acc_tang = np.cross(
             self.ship.omega_dot,
             np.array([
@@ -334,7 +269,6 @@ class ImuCompensator(Node):
                 self.robot.pose_rel_ship.position.z
             ]))
         
-        # centrifugal acceleration
         acc_centr = np.cross(
             self.ship.omega,
             np.cross(
@@ -347,27 +281,18 @@ class ImuCompensator(Node):
             )
         )
         
-        # Coriolis acceleration
         acc_cor = 2.0 * np.cross(
             self.ship.omega,
             R_r_s.dot(self.robot.v_linear)
         )
 
-        # APPARENT ACCELERATION
         acc_app = acc_tang + acc_centr + acc_cor 
 
-        #====================================================
-        #   compensation acceleration 
-        #====================================================
+        acc_comp = self.robot.a_linear - R_s_r.dot(self.ship.a_linear + acc_app) + R_s_r.dot(np.array([0.0, 0.0, 9.81]))
 
-        # acc_comp = a_raw - R_s^r * (a_ship + a_app) + R_s^r * g 
-        acc_comp = self.robot.a_linear - R_s_r.dot(self.ship.a_linear + acc_app) + R_s_r.dot(self.g_vec)
-
-        # omega_comp = omega_raw - R_s^r * omega_ship
         omega_comp = self.robot.omega - R_s_r.dot(self.ship.omega)
 
         return acc_comp, omega_comp
-
 
 def main(args=None):
     rclpy.init(args=args)

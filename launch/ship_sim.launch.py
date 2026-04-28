@@ -36,15 +36,15 @@ def get_mode_config(mode_str):
     elif mode_str == 'navigation_no_comp':
         return {
             'roll_amplitude': 0.3,
-            'pitch_amplitude': 0.0,
-            'heave_amplitude': 0.0,
+            'pitch_amplitude': 0.2,
+            'heave_amplitude': 0.1,
             'imu_enable': False
         }
     elif mode_str == 'navigation':
         return {
             'roll_amplitude': 0.3,
-            'pitch_amplitude': 0.0,
-            'heave_amplitude': 0.0,
+            'pitch_amplitude': 0.2,
+            'heave_amplitude': 0.1,
             'imu_enable': True
         }
     else:
@@ -139,16 +139,13 @@ def generate_launch_description():
     sx, sy, sz = get_robot_spawn_from_sdf(sdf_out) # extract the robot's spawn position from the generated SDF file to use in the IMU compensator node
     print(f"DEBUG: Robot spawn rilevato dall'SDF -> X:{sx}, Y:{sy}, Z:{sz}")
 
-    #=======================================================
+    #=========================================================
     # ROS 2 Nodes for Camera Processing and IMU Compensation
-    #=======================================================
+    #=========================================================
 
     # Camera position parameters relative to the robot's base_footprint frame.
     # These parameters define the static transforms for the left and right cameras
     # They need to be set equal to the position of the cameras in the SDF file.
-    cam_x = '0.09'
-    cam_y_offset = 0.06
-    cam_z = '0.11'
     camera_params_path = os.path.join(pkg_share, 'config', 'stereo_params.yaml') # path to the camera parameters file
 
 
@@ -158,29 +155,49 @@ def generate_launch_description():
     #  - the IMU compensator node to adjust IMU readings based on the robot's spawn position
     # - the RTAB-Map nodes for stereo odometry and SLAM, which will use the rectified camera images and compensated IMU data for localization and mapping
 
+    #================================================================================
     # Static transform from base_footprint to the left and right cameras and the IMU
-    left_camera_tf = Node( 
+    #================================================================================
+
+    base_link_tf = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
-        name='camera_left_tf',
-        arguments=['0.07', '0.06', '0.10', '-1.570796', '0', '-1.570796', 'base_footprint', 'turtlebot3_waffle/base_link/stereo_camera_left']
+        name='base_link_tf',
+        parameters=[{'use_sim_time': True}],
+        arguments=[
+            '--x', '0', '--y', '0', '--z', '0.010',  # da base_joint nel SDF
+            '--roll', '0', '--pitch', '0', '--yaw', '0',
+            '--frame-id', 'base_footprint',
+            '--child-frame-id', 'base_link'
+        ]
     )
 
-    right_camera_tf = Node(
+    camera_link_left_tf = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
-        name='camera_right_tf',
-        arguments=['0.07', '-0.06', '0.10', '-1.570796', '0', '-1.570796', 'base_footprint', 'turtlebot3_waffle/base_link/stereo_camera_right']
+        name='camera_link_left_base_tf',
+        parameters=[{'use_sim_time': True}],
+        arguments=[
+            '--x', '0.15', '--y', '0.06', '--z', '0.1',  # da camera_left_joint nel SDF
+            '--roll', '0', '--pitch', '0.2', '--yaw', '0',
+            '--frame-id', 'base_link',
+            '--child-frame-id', 'camera_link_left'
+        ]
     )
 
-    imu_tf = Node(
+    camera_link_right_tf = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
-        name='imu_tf',
-        arguments=['-0.032', '0', '0.068', '0', '0', '0', 'base_footprint', 'imu_link']
-    )    #==============================================================================
-    # Static transform from base_footprint to the left and right cameras and the IMU
-    #==============================================================================
+        name='camera_link_right_base_tf',
+        parameters=[{'use_sim_time': True}],
+        arguments=[
+            '--x', '0.15', '--y', '-0.06', '--z', '0.1',  # da camera_right_joint nel SDF
+            '--roll', '0', '--pitch', '0.2', '--yaw', '0',
+            '--frame-id', 'base_link',
+            '--child-frame-id', 'camera_link_right'
+        ]
+    )
+
     left_camera_tf = Node( 
         package='tf2_ros',
         executable='static_transform_publisher',
@@ -189,10 +206,11 @@ def generate_launch_description():
             'use_sim_time': True
         }],
         arguments=[
-            '--x', cam_x, '--y', str(cam_y_offset), '--z', cam_z,
+            # '--x', cam_x, '--y', str(cam_y_offset), '--z', cam_z,
+            '--x', '0', '--y', '0', '--z', '0',
             '--roll', '-1.570796', '--pitch', '0', '--yaw', '-1.570796',
-            '--frame-id', 'base_footprint',
-            '--child-frame-id', 'ship_corridor_dynamic/turtlebot3_waffle/base_link/stereo_camera_left'
+            '--frame-id', 'camera_link_left', # set the parent frame to the camera link, which is the frame where the camera images are published in Gazebo, to ensure correct TF tree structure for image processing nodes
+            '--child-frame-id', 'ship_corridor_dynamic/turtlebot3_waffle/camera_link_left/stereo_camera_left'
         ]
     )
 
@@ -200,26 +218,26 @@ def generate_launch_description():
         package='tf2_ros',
         executable='static_transform_publisher',
         name='camera_right_tf',
-        parameters=[{
-            'use_sim_time': True
-        }],
-        arguments=[
-            '--x', cam_x, '--y', str(-cam_y_offset), '--z', cam_z,
-            '--roll', '-1.570796', '--pitch', '0', '--yaw', '-1.570796',
-            '--frame-id', 'base_footprint',
-            '--child-frame-id', 'ship_corridor_dynamic/turtlebot3_waffle/base_link/stereo_camera_right'
-        ]
-    )
-
-    imu_tf = Node(
-        package='tf2_ros',
-        executable='static_transform_publisher',
-        name='imu_tf',
         parameters=[{
             'use_sim_time': True
         }],
         arguments=[
             '--x', '0', '--y', '0', '--z', '0',
+            '--roll', '-1.570796', '--pitch', '0', '--yaw', '-1.570796',
+            '--frame-id', 'camera_link_right', # set the parent frame to the camera link, which is the frame where the camera images are published in Gazebo, to ensure correct TF tree structure for image processing nodes
+            '--child-frame-id', 'ship_corridor_dynamic/turtlebot3_waffle/camera_link_right/stereo_camera_right'
+        ]
+    )
+
+    imu_tf = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        name='imu_tf',
+        parameters=[{
+            'use_sim_time': True
+        }],
+        arguments=[
+            '--x', '-0.032', '--y', '0', '--z', '0.078',  # 0.068 + 0.010
             '--roll', '0', '--pitch', '0', '--yaw', '0',
             '--frame-id', 'base_footprint',
             '--child-frame-id', 'imu_link'
@@ -241,7 +259,7 @@ def generate_launch_description():
             ('camera_info','/camera/left/camera_info'),
             ('image_rect','/camera/left/image_rect') # rectified image topic
         ],
-        parameters=[camera_params_path],
+        parameters=[camera_params_path, {'use_sim_time': True}],
         output='screen'
     )
 
@@ -254,7 +272,7 @@ def generate_launch_description():
             ('camera_info','/camera/right/camera_info'),
             ('image_rect','/camera/right/image_rect')
         ],
-        parameters=[camera_params_path],
+        parameters=[camera_params_path, {'use_sim_time': True}],
         output='screen'
     )
 
@@ -272,7 +290,7 @@ def generate_launch_description():
             ('right/camera_info','/camera/right/camera_info'),
             ('disparity','/debug/stereo/disparity')
         ],
-        parameters=[camera_params_path],
+        parameters=[camera_params_path, {'use_sim_time': True}],
         on_exit=LogInfo(msg='Disparity node closed.'),
         respawn=False,
         output='screen'
@@ -291,7 +309,7 @@ def generate_launch_description():
             ('stereo/right/image', '/camera/right/image_rect'),
             ('stereo/disparity', '/debug/stereo/disparity'),
         ],
-        parameters=[camera_params_path],
+        parameters=[camera_params_path, {'use_sim_time': True}],
         output='screen'
     )
 
@@ -331,7 +349,8 @@ def generate_launch_description():
         parameters=[{
             'use_sim_time': True,
             'approx_sync': True,
-            'queue_size': 10
+            'approx_sync_max_interval': 0.05, # maximum time difference between left and right images to be considered synchronized, in seconds
+            'sync_queue_size': 10
         }],
         remappings=[
             ('left/image_rect', '/camera/left/image_rect'),
@@ -352,7 +371,7 @@ def generate_launch_description():
         executable='ekf_node',
         name='ekf_filter_node',
         output='screen',
-        parameters=[ekf_odom_params_path]
+        parameters=[ekf_odom_params_path,{'use_sim_time':True}]
     )
 
     #===========================================================================
@@ -360,21 +379,32 @@ def generate_launch_description():
     #===========================================================================
     rtabmap_parameters_path = os.path.join(pkg_share, 'config', 'rtabmap_params.yaml')
     stereo_odom_remappings = [ # map topic to enable imu data for stereo odometry
-                # ('left/image_rect', '/camera/left/image_rect'),
-                # ('right/image_rect', '/camera/right/image_rect'),
-                # ('left/camera_info', '/camera/left/camera_info'),
-                # ('right/camera_info', '/camera/right/camera_info'),
                 ('rgbd_image', '/stereo_camera/rgbd_image') # use the synchronized stereo image topic from rtabmap_sync
         ]
 
+
     if odom_type in ('loosely'):
+        wheel_tf_bridge = Node(
+            package='ros_gz_bridge',
+            executable='parameter_bridge',
+            name='wheel_tf_bridge',
+            arguments=['/model/turtlebot3_waffle/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V'],
+            remappings=[
+                ('/model/turtlebot3_waffle/tf', '/tf')
+            ],
+            output='screen'
+        )
+
         stereo_odom_remappings.append(('odom', '/stereo_odom'))
         stereo_odom_remappings.append(('odom_local_map', '/stereo_odom_local_map'))
         stereo_odom_remappings.append(('imu','/robot/imu/compensated'))
         stereo_odom_params = { # use imu data for stereo odometry
             'subscribe_imu': True,
             'wait_imu_to_init': True,
+            'guess_from_tf': True,
             'guess_frame_id': 'odom',
+            'publish_tf': True,
+            'odom_frame_id': 'stereo_odom',
         }
 
     elif odom_type == 'ekf': # use pure stereo odometry as input to the EKF, without IMU data
@@ -384,7 +414,8 @@ def generate_launch_description():
             'subscribe_imu': False,
             'wait_imu_to_init': False,
             'guess_frame_id': '',
-            'publish_tf': True, 
+            'publish_tf': False,
+            'odom_frame_id': 'stereo_odom', 
         }
     else:
         raise ValueError(f"Unknown odom_type: {odom_type}. Allowed values: loosely, tight, ekf")
@@ -419,10 +450,6 @@ def generate_launch_description():
     #==============================================================================
 
     rtabmap_slam_remappings = [
-            # ('left/image_rect', '/camera/left/image_rect'),
-            # ('right/image_rect', '/camera/right/image_rect'),
-            # ('left/camera_info', '/camera/left/camera_info'),
-            # ('right/camera_info', '/camera/right/camera_info'),
             ('rgbd_image', '/stereo_camera/rgbd_image'), # use the synchronized stereo image topic from rtabmap_sync
             ('imu','/robot/imu/compensated'),
     ]
@@ -448,7 +475,22 @@ def generate_launch_description():
         arguments=['-d']
     )
 
-    delayed_rtabmap_slam_node = TimerAction(period=11.0, actions=[rtabmap_slam_node])
+    delayed_rtabmap_slam_node = TimerAction(period=10.5, actions=[rtabmap_slam_node])
+
+    #==========
+    # RVIZ
+    #===========
+
+    rviz2_config = os.path.join(pkg_share,'config','rtabmap.rviz')
+
+    rviz2 = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        output='screen',
+        arguments=['-d', rviz2_config],
+        parameters=[{'use_sim_time': True}]
+    )
 
     #=============================
     # Nodes List
@@ -464,7 +506,10 @@ def generate_launch_description():
             name='GZ_SIM_SYSTEM_PLUGIN_PATH',
             value=plugin_path,
         ),
-
+        AppendEnvironmentVariable(
+            name='GZ_SIM_RESOURCE_PATH',
+            value=os.path.join(pkg_share, 'models'),  # ← il tuo prima
+        ),
         AppendEnvironmentVariable(
             name='GZ_SIM_RESOURCE_PATH',
             value='/opt/ros/jazzy/share/turtlebot3_gazebo/models',
@@ -492,16 +537,22 @@ def generate_launch_description():
         left_camera_tf, # static transform from base_footprint to left camera
         right_camera_tf, # static transform from base_footprint to right camera
         imu_tf, # static transform from base_footprint to IMU
+        base_link_tf, # static transform from base_footprint to base_link
+        camera_link_left_tf, # static transform from base_link to left camera link
+        camera_link_right_tf, # static transform from base_link to right camera link
         left_camera_rect, # node for rectifying the left camera image
         right_camera_rect, # node for rectifying the right camera image
         compensate_imu, # node for compensating the IMU readings w.r.t. the ship motion
         stereo_sync_node, # node for synchronizing the left and right camera images and packaging them into a single RGBD image topic
         delayed_stereo_odometry_node, # node for generating odometry from the stereo camera data, delayed to ensure cameras and bridge are up
         delayed_rtabmap_slam_node, # node for SLAM and Navigation using RTAB-Map, delayed to ensure stereo odometry is up
+        rviz2
     ]
 
     if odom_type == 'ekf':
         nodes_list.append(ekf_odom_node) # run EKF only when selected as odometry architecture
+    elif odom_type == 'loosely':
+        nodes_list.append(TimerAction(period=5.0, actions=[wheel_tf_bridge]))
    
     if debug_camera:  # append the stereo view and disparity map nodes only if debug_camera is enabled
         nodes_list.append(rqt_image_view)

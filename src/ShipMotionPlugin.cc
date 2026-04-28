@@ -115,14 +115,14 @@ namespace ship_gazebo {
         double pitchVel = 0.0 ; 
         double heaveVel = 0.0 ;
         
-       if(t>=3) {
-            double t_motion = t - 2.0 ; 
+       if(t>=0.5) {
+            double t_motion = t - 0.5 ; 
             
             // --- START RAMP-UP ---
-            double rampDuration = 5.0; // Duration of the ramp in seconds
+            double rampDuration = 10.0; // Duration of the ramp in seconds
             double rampFactor = 1.0;   // default multiplier (100% of the force)
             
-            // If we are in the first 5 seconds of motion, the factor rises from 0 to 1 linearly
+            // If we are in the first ramp seconds of motion, the factor rises from 0 to 1 linearly
             if (t_motion < rampDuration) {
                 rampFactor = t_motion / rampDuration;
             }

@@ -1,14 +1,14 @@
 obstacles:
   - name: obs_1
     type: box
-    size: [0.1, 0.1, 0.1]
+    size: [0.2, 0.2, 0.2]
     offset: [2.75, -0.30, 0.0]
     color: [1, 0, 0]
 
   - name: obs_2
     type: cylinder
-    radius: 0.1
-    length: 0.1
+    radius: 0.2
+    length: 0.2
     offset: [2.20, 0.35, 0.0]
     color: [0, 1, 0]
 

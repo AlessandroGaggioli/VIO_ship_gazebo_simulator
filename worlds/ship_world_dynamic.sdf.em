@@ -46,7 +46,7 @@ intermediate_izz  = 10
 corridor_size = (61.737, 8.803, 3.300) #three corridor (large)
 
 scale = tuple(a / b for a, b in zip(corridor_size, ship_size))
-scale = (scale[0], scale[1] * 0.8, scale[2] * 3) + (0.0,0.0,0.0)
+scale = (scale[0], scale[1]*1.2, scale[2] * 4) + (0.0,0.0,0.0)
 
 target_center = (40.0, 5.0, 2.50, 0.0, 0.0, 0.0)
 
@@ -120,22 +120,22 @@ for m in _objects.get('models', []):
 if 'roll_amplitude' not in locals():
     roll_amplitude  = 0.3   # rad
 if 'pitch_amplitude' not in locals():
-    pitch_amplitude = 0.0   # rad
+    pitch_amplitude = 0.2   # rad
 if 'heave_amplitude' not in locals():
-    heave_amplitude = 0.0   # rad
+    heave_amplitude = 0.1   # rad
 
 roll_frequency  = 0.1   # Hz
 roll_phase      = 0.0   # rad
 
-pitch_frequency = 0.0
+pitch_frequency = 0.1
 pitch_phase     = 0.0
 
-heave_frequency = 0.0
+heave_frequency = 0.1
 heave_phase     = 0.0
 
 roll_bound  = 0.31   # rad
-pitch_bound = 0.0   # rad
-heave_bound = 0.0   # m
+pitch_bound = 0.21   # rad
+heave_bound = 0.11   # m
 
 revolute_damping  = 100.0
 revolute_friction = 10.0
@@ -334,24 +334,21 @@ for cam in _objects.get('cameras', []):
 
                 <visual name="ship_hull">
                     <geometry>
-                        <!--
-                        <box>
-                            <size>@(ship_size[0]) @(ship_size[1]) @(ship_size[2])</size>
-                        </box>
-                        -->
                         <mesh>
                             <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/vessel_mode.dae</uri>
                         </mesh>
                     </geometry>
-                     <transparency>0.7</transparency> 
-                    <!--
+
+                    <!-- meno trasparente -->
+                    <transparency>0.3</transparency>
+
                     <material>
-                        <ambient>0.67 0.85 0.9 0.4</ambient>
-                        <diffuse>0.67 0.85 0.9 0.4</diffuse>
-                        <specular>0.67 0.85 0.9 0.4</specular>
-                        <emissive>0.0 0.0 0.0 0.2</emissive>
+                        <!-- grigio scuro -->
+                        <ambient>0.2 0.2 0.2 1</ambient>
+                        <diffuse>0.25 0.25 0.25 1</diffuse>
+                        <specular>0.1 0.1 0.1 1</specular>
+                        <emissive>0 0 0 1</emissive>
                     </material>
-                    -->
                 </visual>
 
                 <!-- IMU nave: pubblicata su /ship/imu (bridge ROS2) -->
@@ -397,12 +394,16 @@ for cam in _objects.get('cameras', []):
                 </inertial>
 
                 <visual name="corridor_visual">
+                    <pose>0 0 0.01 0 0 0</pose>  <!-- 2 mm -->
                     <geometry>
                         <mesh>
-                            <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_color/ship_large_corridor_colored_chess.dae</uri>
+                            <uri>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_color/ship_large_corridor_colored_mix.dae</uri>
                             <scale>@(scale[0]) @(scale[1]) @(scale[2])</scale>
                         </mesh>
                     </geometry>
+                    <ambient>1 1 1 1</ambient>
+                    <diffuse>1 1 1 1</diffuse>
+                    <cast_shadows>true</cast_shadows>
                 </visual>
 
                 <collision name="corridor_collision">
@@ -529,8 +530,16 @@ for cam in _objects.get('cameras', []):
                     <size>@(ob['size'][0]) @(ob['size'][1]) @(ob['size'][2])</size>
                 </box></geometry>
                 <material>
-                    <ambient>@(ob['color'][0]) @(ob['color'][1]) @(ob['color'][2]) 1</ambient>
-                    <diffuse>@(ob['color'][0]) @(ob['color'][1]) @(ob['color'][2]) 1</diffuse>
+                    <!-- <ambient>@(ob['color'][0]) @(ob['color'][1]) @(ob['color'][2]) 1</ambient>
+                    <diffuse>@(ob['color'][0]) @(ob['color'][1]) @(ob['color'][2]) 1</diffuse> -->
+
+                    <ambient>1 1 1 1</ambient>
+                    <diffuse>1 1 1 1</diffuse>
+                    <pbr>
+                        <metal>
+                        <albedo_map>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_color/texture_obs.png</albedo_map>
+                        </metal>
+                    </pbr>
                 </material></visual>
 
                 @[elif ob['type'] == 'cylinder']@
@@ -541,8 +550,15 @@ for cam in _objects.get('cameras', []):
                     <radius>@(ob['radius'])</radius><length>@(ob['length'])</length>
                 </cylinder></geometry>
                 <material>
-                    <ambient>@(ob['color'][0]) @(ob['color'][1]) @(ob['color'][2]) 1</ambient>
-                    <diffuse>@(ob['color'][0]) @(ob['color'][1]) @(ob['color'][2]) 1</diffuse>
+                    <!-- <ambient>@(ob['color'][0]) @(ob['color'][1]) @(ob['color'][2]) 1</ambient>
+                    <diffuse>@(ob['color'][0]) @(ob['color'][1]) @(ob['color'][2]) 1</diffuse> -->
+                    <ambient>1 1 1 1</ambient>
+                    <diffuse>1 1 1 1</diffuse>
+                    <pbr>
+                        <metal>
+                        <albedo_map>file:///home/alienware/ship_ws/src/ship_gazebo/models/ship_color/texture_obs.png</albedo_map>
+                        </metal>
+                    </pbr>
                 </material></visual>
 
                 @[end if]@
@@ -552,6 +568,30 @@ for cam in _objects.get('cameras', []):
                 <child>@(ob['name'])_link</child>
             </joint>
             @[end for]@
+
+            <light name="start_spot_light" type="spot">
+                <pose relative_to="corridor_link">
+                    @(corridor_origin_x + 2.5) 0 2.0 0 0 0
+                </pose>
+                <cast_shadows>true</cast_shadows>
+
+                <diffuse>1 1 1 1</diffuse>
+
+                <direction>0 0 -1</direction>
+
+                <spot>
+                    <inner_angle>0.3</inner_angle>
+                    <outer_angle>0.8</outer_angle>
+                    <falloff>0.5</falloff>
+                </spot>
+
+                <attenuation>
+                    <range>8</range>
+                    <constant>0.5</constant>
+                    <linear>0.02</linear>
+                    <quadratic>0.002</quadratic>
+                </attenuation>
+            </light>
 
             <!--===============================-->
             <!-- TURTLEBOT -->

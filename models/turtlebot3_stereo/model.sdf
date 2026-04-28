@@ -42,52 +42,6 @@
           <diffuse>1 1 0 1.0</diffuse>
         </material>
       </visual>
-
-      <!-- ========================================  -->
-      <!-- CAMERA LEFT and CAMERA RIGHT -->
-      <!-- ======================================== -->
-      
-      <sensor name="stereo_camera_left" type="camera">
-        <pose>0.09 0.06 0.10 0 0 0</pose>
-        <always_on>true</always_on>
-        <update_rate>30.0</update_rate>
-        <topic>/camera/left/image_raw</topic>
-        <camera name="left">
-          <horizontal_fov>1.3962634</horizontal_fov>
-          <image>
-            <width>640</width>
-            <height>480</height>
-            <format>R8G8B8</format>
-          </image>
-          <clip>
-            <near>0.02</near>
-            <far>300</far>
-          </clip>
-        </camera>
-      </sensor>
-
-      <sensor name="stereo_camera_right" type="camera">
-        <pose>0.09 -0.06 0.10 0 0 0</pose>
-        <always_on>true</always_on>
-        <update_rate>30.0</update_rate>
-        <topic>/camera/right/image_raw</topic>
-        <camera name="right">
-          <horizontal_fov>1.3962634</horizontal_fov>
-          <image>
-            <width>640</width>
-            <height>480</height>
-            <format>R8G8B8</format>
-          </image>
-          <clip>
-            <near>0.02</near>
-            <far>300</far>
-          </clip>
-        </camera>
-      </sensor>
-    
-
-      
-    <!-- ======================================== -->
     </link>
 
     <link name="imu_link">
@@ -140,76 +94,6 @@
         </imu>
       </sensor>
     </link>
-
-    <!--LiDAR-->
-    <!--
-    <link name="base_scan">
-      <inertial>
-        <pose>-0.052 0 0.111 0 0 0</pose>
-        <inertia>
-          <ixx>0.001</ixx>
-          <ixy>0.000</ixy>
-          <ixz>0.000</ixz>
-          <iyy>0.001</iyy>
-          <iyz>0.000</iyz>
-          <izz>0.001</izz>
-        </inertia>
-        <mass>0.114</mass>
-      </inertial>
-
-      <collision name="lidar_sensor_collision">
-        <pose>-0.052 0 0.111 0 0 0</pose>
-        <geometry>
-          <cylinder>
-            <radius>0.0508</radius>
-            <length>0.055</length>
-          </cylinder>
-        </geometry>
-      </collision>
-
-      <visual name="lidar_sensor_visual">
-        <pose>-0.064 0 0.121 0 0 0</pose>
-        <geometry>
-          <mesh>
-            <uri>model://turtlebot3_common/meshes/sensors/lds.stl</uri>
-            <scale>0.001 0.001 0.001</scale>
-          </mesh>
-        </geometry>
-        <material>
-          <ambient>0.2 0.2 0.2 1.0</ambient>
-          <diffuse>0.2 0.2 0.2 1.0</diffuse>
-        </material>
-      </visual>
-
-      <sensor name="hls_lfcd_lds" type="gpu_lidar">
-        <always_on>true</always_on>
-        <visualize>true</visualize>
-        <pose>-0.064 0 0.121 0 0 0</pose>
-        <update_rate>10</update_rate>
-        <topic>scan</topic>
-        <lidar>
-          <scan>
-            <horizontal>
-              <samples>360</samples>
-              <resolution>1.000000</resolution>
-              <min_angle>0.000000</min_angle>
-              <max_angle>6.280000</max_angle>
-            </horizontal>
-          </scan>
-          <range>
-            <min>0.120000</min>
-            <max>3.5</max>
-            <resolution>0.015000</resolution>
-          </range>
-          <noise>
-            <type>gaussian</type>
-            <mean>0.0</mean>
-            <stddev>0.01</stddev>
-          </noise>
-        </lidar>
-      </sensor>
-    </link>
-    -->
 
     <link name="wheel_left_link">
 
@@ -412,7 +296,6 @@
             </ode>
           </contact>
           <!-- add friction and add slip-->
-          
           <friction>
             <ode>
               <mu>0.1</mu>
@@ -421,54 +304,69 @@
               <slip2>1.0</slip2>
             </ode>
           </friction>
-          
           <!--==========================-->
         </surface>
       </collision>
     </link>
 
-    <link name="camera_link"/>
+    <!-- ========================================  -->
+    <!-- CAMERA LEFT and CAMERA RIGHT -->
+    <!-- ======================================== -->
 
-    <!-- <link name="camera_rgb_frame">
-      <inertial>
-        <pose>0.069 -0.047 0.107 0 0 0</pose>
-        <inertia>
-          <ixx>0.001</ixx>
-          <ixy>0.000</ixy>
-          <ixz>0.000</ixz>
-          <iyy>0.001</iyy>
-          <iyz>0.000</iyz>
-          <izz>0.001</izz>
-        </inertia>
-        <mass>0.035</mass>
-      </inertial>
-
-      <pose>0.069 -0.047 0.107 0 0 0</pose>
-      <sensor name="camera" type="camera">
+    <link name="camera_link_left">
+      <sensor name="stereo_camera_left" type="camera">
+        <pose>0.15 0.06 0.10 0 0.2 0</pose>
         <always_on>true</always_on>
-        <visualize>true</visualize>
-        <update_rate>30</update_rate>
-        <topic>camera/image_raw</topic>
-        <camera name="intel_realsense_r200">
-          <camera_info_topic>camera/camera_info</camera_info_topic>
-          <horizontal_fov>1.02974</horizontal_fov>
+        <update_rate>30.0</update_rate>
+        <topic>/camera/left/image_raw</topic>
+        <camera name="left">
+          <horizontal_fov>1.3962634</horizontal_fov>
           <image>
-            <width>1920</width>
-            <height>1080</height>
+            <width>640</width>
+            <height>480</height>
             <format>R8G8B8</format>
           </image>
           <clip>
             <near>0.02</near>
             <far>300</far>
           </clip>
-          <noise>
-            <type>gaussian</type>
-            <mean>0.0</mean>
-            <stddev>0.007</stddev>
-          </noise>
         </camera>
       </sensor>
-    </link> -->
+    </link>
+
+    <link name="camera_link_right">
+      <sensor name="stereo_camera_right" type="camera">
+        <pose>0.15 -0.06 0.10 0 0.2 0</pose>
+        <always_on>true</always_on>
+        <update_rate>30.0</update_rate>
+        <topic>/camera/right/image_raw</topic>
+        <camera name="right">
+          <horizontal_fov>1.3962634</horizontal_fov>
+          <image>
+            <width>640</width>
+            <height>480</height>
+            <format>R8G8B8</format>
+          </image>
+          <clip>
+            <near>0.02</near>
+            <far>300</far>
+          </clip>
+        </camera>
+      </sensor>
+    </link>
+
+    <!-- Joint da base_link ai link camera -->
+    <joint name="camera_left_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>camera_link_left</child>
+      <pose>0 0 0 0 0 0</pose>
+    </joint>
+
+    <joint name="camera_right_joint" type="fixed">
+      <parent>base_link</parent>
+      <child>camera_link_right</child>
+      <pose>0 0 0 0 0 0</pose>
+    </joint>
 
     <joint name="base_joint" type="fixed">
       <parent>base_footprint</parent>
@@ -486,12 +384,10 @@
           <effort>20</effort>
         </limit>
         <!-- add damping and friction -->
-        
         <dynamics>
           <damping>2.0</damping>
           <friction>0.1</friction>
         </dynamics>
-        
         <!--==========================-->
       </axis>
     </joint>
@@ -506,12 +402,10 @@
           <effort>20</effort>
         </limit>
         <!-- add damping and friction -->
-        
         <dynamics>
           <damping>2.0</damping>
           <friction>0.1</friction>
         </dynamics>
-        
         <!--==========================-->
       </axis>
     </joint>
@@ -535,36 +429,6 @@
       </axis>
     </joint>
 
-    <!-- LiDAR -->
-    <!--
-    <joint name="lidar_joint" type="fixed">
-      <parent>base_link</parent>
-      <child>base_scan</child>
-      <pose>-0.064 0 0.121 0 0 0</pose>
-      <axis>
-        <xyz>0 0 1</xyz>
-      </axis>
-    </joint>
-    -->
-
-    <joint name="camera_joint" type="fixed">
-      <parent>base_link</parent>
-      <child>camera_link</child>
-      <pose>0.064 -0.065 0.094 0 0 0</pose>
-      <axis>
-        <xyz>0 0 1</xyz>
-      </axis>
-    </joint>
-
-    <!-- <joint name="camera_rgb_joint" type="fixed">
-      <parent>camera_link</parent>
-      <child>camera_rgb_frame</child>
-      <pose>0.005 0.018 0.013 0 0 0</pose>
-      <axis>
-        <xyz>0 0 1</xyz>
-      </axis>
-    </joint> -->
-
     <plugin filename="gz-sim-diff-drive-system" name="gz::sim::systems::DiffDrive">
 
       <!-- wheels -->
@@ -572,7 +436,7 @@
       <right_joint>wheel_right_joint</right_joint>
 
       <!-- kinematics -->
-      <wheel_separation>0.287</wheel_separation>
+      <wheel_separation>0.288</wheel_separation>
       <wheel_radius>0.033</wheel_radius>
 
       <!-- limits -->
@@ -583,7 +447,7 @@
       <odom_topic>/odom</odom_topic>
       <frame_id>odom</frame_id>
       <child_frame_id>base_footprint</child_frame_id>
-      <odom_publisher_frequency>30</odom_publisher_frequency>
+      <odom_publisher_frequency>50</odom_publisher_frequency>
 
     </plugin>
 
