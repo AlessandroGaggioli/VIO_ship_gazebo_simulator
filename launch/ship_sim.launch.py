@@ -337,9 +337,9 @@ def generate_launch_description():
         }]
     )
 
-    #=============================================
+    #======================================================
     # Stereo Synchronization Node by RTAB-Map (rtabmap_sync)
-    #==============================================
+    #======================================================
 
     stereo_sync_node = Node(
         package='rtabmap_sync',
@@ -349,7 +349,7 @@ def generate_launch_description():
         parameters=[{
             'use_sim_time': True,
             'approx_sync': True,
-            'approx_sync_max_interval': 0.05, # maximum time difference between left and right images to be considered synchronized, in seconds
+            'approx_sync_max_interval': 0.05, # maximum time difference between left and right images to be considered synchronized
             'sync_queue_size': 10
         }],
         remappings=[
@@ -357,7 +357,7 @@ def generate_launch_description():
             ('right/image_rect', '/camera/right/image_rect'),
             ('left/camera_info', '/camera/left/camera_info'),
             ('right/camera_info', '/camera/right/camera_info'),
-            ('rgbd_image', '/stereo_camera/rgbd_image') # Il nuovo topic "impacchettato"
+            ('rgbd_image', '/stereo_camera/rgbd_image') 
         ]
     )
 
@@ -429,20 +429,6 @@ def generate_launch_description():
         remappings=stereo_odom_remappings
     )
 
-    # Node for publishing the TF from the stereo odometry pose 
-    # stereo_odom_tf_publisher_node = Node(
-    #     package='ship_gazebo',
-    #     executable='stereo_odom_tf_publisher.py',
-    #     name='stereo_odom_tf_publisher',
-    #     output='screen',
-    #     parameters=[{
-    #         'use_sim_time': True,
-    #         'odom_topic': '/stereo_odom',
-    #         'parent_frame_id': 'stereo_odom',
-    #         'child_frame_id': 'base_footprint_stereo'
-    #     }]
-    # )
-
     delayed_stereo_odometry_node = TimerAction(period=10.0, actions=[stereo_odometry_node])
     
     #==============================================================================
@@ -463,7 +449,7 @@ def generate_launch_description():
         rtabmap_slam_remappings.append(('odom', '/stereo_odom'))
         rtabmap_slam_parameters.append({'odom_frame_id': 'stereo_odom'}) # set the odom frame id to match the stereo odometry output
     else:
-        raise ValueError(f"Unknown odom_type: {odom_type}. Allowed values: loosely, tight, ekf")
+        raise ValueError(f"Unknown odom_type: {odom_type}. Allowed values: loosely, ekf")
     
     rtabmap_slam_node = Node(
         package='rtabmap_slam',

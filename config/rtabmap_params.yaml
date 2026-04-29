@@ -10,7 +10,7 @@
 /rtabmap:
   ros__parameters:
     # ==========================================
-    # PARAMETRI ROS (Wrapper)
+    # ROS PARAMETERS
     # ==========================================
     frame_id: 'base_footprint'
     map_frame_id: 'map'
@@ -31,7 +31,7 @@
     wait_for_transform: 1.0
 
     # ==========================================
-    # PARAMETRI CORE RTAB-MAP 
+    # RTABMAP PARAMETERS
     # ==========================================
     # Modalità Mapping (SLAM)
     Rtabmap/PublishPdf: 'true'
@@ -77,11 +77,6 @@
     Reg/Force3DoF: 'false'
     RGBD/ForceOdom3DoF: 'false'
 
-# /reset_localization:
-#   ros__parameters:
-#     use_sim_time: True
-#     wait_time: 3.0
-
 /stereo_odometry:
   ros__parameters:
     use_sim_time: True
@@ -124,3 +119,8 @@
     SIFT/ContrastThreshold: '0.04'
     SIFT/EdgeThreshold: '10'
     Reg/Force3DoF: 'false'
+
+# /reset_localization:
+#   ros__parameters:
+#     use_sim_time: True
+#     wait_time: 3.0

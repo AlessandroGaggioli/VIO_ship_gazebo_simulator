@@ -151,7 +151,7 @@ class ImuCompensator(Node):
         #gravity 
         self.g_vec=np.array([0.0,0.0,9.81])
 
-        # Filtri dinamici resistenti al jitter (EMA time-aware)
+        # Filtri dinamici (EMA time-aware)
         self.omega_filter = EMAFilter3D(cutoff_freq=2.0)
         self.acc_filter = EMAFilter3D(cutoff_freq=2.0) 
 
@@ -201,8 +201,7 @@ class ImuCompensator(Node):
 
         self.ship.last_time = time 
 
-        # --- DIFESA CONTRO IL LAG ESTREMO ---
-        # Se dt > 0.05s, Gazebo ha laggato. Congeliamo omega_dot per evitare picchi assurdi.
+        # If dt > 0.05s, Gazebo has lagged. We freeze omega_dot to avoid absurd spikes.
         if dt <= 0.05:
             self.ship.omega_dot = (omega_current - self.ship.omega) / dt
         
@@ -247,6 +246,7 @@ class ImuCompensator(Node):
         self.pub_imu_comp.publish(comp_msg)        
         
     def compute_compensation(self): 
+
         R_r_s = R.from_quat([
             self.robot.pose_rel_ship.orientation.x,
             self.robot.pose_rel_ship.orientation.y,
