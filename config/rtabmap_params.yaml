@@ -47,7 +47,7 @@
     Grid/RangeMin: '0.001'
     Grid/RangeMax: '3.0'
     Grid/RayTracing: 'true'
-    Grid/MapFrameProjection: 'true'
+    Grid/MapFrameProjection: 'false'
     Grid/3D: 'false'                 # Proiezione 2D
     
     # Filtraggio Ostacoli/Pavimento
@@ -60,8 +60,7 @@
     Grid/NoiseFilteringMinNeighbors: '0'
 
     # Ottimizzazione
-    Optimizer/Slam2D: 'false'
-    Optimizer/GravitySigma: '0.3'
+    Optimizer/GravitySigma: '0.1'
 
     #StereoSGBM
     StereoSGBM/BlockSize: '21' #default 15, rising to 21 to improve robustness in low-texture areas

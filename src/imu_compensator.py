@@ -34,6 +34,7 @@ from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Imu
 from nav_msgs.msg import Odometry
 from scipy.spatial.transform import Rotation as R 
+from geometry_msgs.msg import Quaternion
 from geometry_msgs.msg import Pose
 import numpy as np
 import message_filters
@@ -65,6 +66,7 @@ class ShipState:
         self.omega = None 
         self.omega_dot = np.zeros(3)
         self.a_linear = np.zeros(3)
+        self.R = np.eye(3)
 
 class RobotState: 
     def __init__(self):
@@ -72,6 +74,7 @@ class RobotState:
         self.pose_rel_ship = Pose()
         self.omega = np.zeros(3)
         self.a_linear = np.zeros(3)
+        self.R = np.eye(3)
 
 class EMAFilter3D: 
     def __init__(self, cutoff_freq):
@@ -207,6 +210,13 @@ class ImuCompensator(Node):
         
         self.ship.omega = omega_current 
 
+        self.ship.R = R.from_quat([
+            ship_msg.orientation.x,
+            ship_msg.orientation.y,
+            ship_msg.orientation.z,
+            ship_msg.orientation.w
+        ])
+
         self.robot.a_linear = np.array([
             robot_msg.linear_acceleration.x, 
             robot_msg.linear_acceleration.y,
@@ -219,10 +229,19 @@ class ImuCompensator(Node):
             robot_msg.angular_velocity.z
         ])
 
+        self.robot.R = R.from_quat([
+            robot_msg.orientation.x,
+            robot_msg.orientation.y,
+            robot_msg.orientation.z,
+            robot_msg.orientation.w
+        ])
+
         if self.get_parameter('enable').value:
-            acc_comp, omega_comp = self.compute_compensation()
+            acc_comp, omega_comp, quat_comp = self.compute_compensation()
+
         else: 
             acc_comp, omega_comp = self.robot.a_linear, self.robot.omega
+            quat_comp = robot_msg.orientation
 
         acc_comp = self.acc_filter.filter(acc_comp, dt) 
         omega_comp = self.omega_filter.filter(omega_comp, dt)
@@ -230,7 +249,7 @@ class ImuCompensator(Node):
         comp_msg = Imu()
         comp_msg.header = robot_msg.header 
         comp_msg.header.frame_id = "imu_link"  
-        comp_msg.orientation = self.robot.pose_rel_ship.orientation
+        comp_msg.orientation = quat_comp
         comp_msg.orientation_covariance = robot_msg.orientation_covariance
 
         comp_msg.linear_acceleration.x = acc_comp[0]
@@ -288,11 +307,18 @@ class ImuCompensator(Node):
 
         acc_app = acc_tang + acc_centr + acc_cor 
 
-        acc_comp = self.robot.a_linear - R_s_r.dot(self.ship.a_linear + acc_app) + R_s_r.dot(np.array([0.0, 0.0, 9.81]))
+        acc_comp = self.robot.a_linear - R_s_r.dot(self.ship.a_linear + acc_app) + R_s_r.dot(np.array([0.0, 0.0, 9.80665]))
 
         omega_comp = self.robot.omega - R_s_r.dot(self.ship.omega)
 
-        return acc_comp, omega_comp
+        quat_comp = (self.ship.R.inv() * self.robot.R).as_quat()
+        quat_comp_msg = Quaternion()
+        quat_comp_msg.x = quat_comp[0]
+        quat_comp_msg.y = quat_comp[1]
+        quat_comp_msg.z = quat_comp[2]
+        quat_comp_msg.w = quat_comp[3]
+
+        return acc_comp, omega_comp, quat_comp_msg
 
 def main(args=None):
     rclpy.init(args=args)

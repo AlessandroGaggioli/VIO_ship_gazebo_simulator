@@ -16,7 +16,7 @@ cameras:
   - name: first_int_corridor_camera
     parent: corridor_link
     reference: start
-    offset: [0.18, 0, 0.5, 0, 0.3, 0]   # x y z roll pitch yaw
+    offset: [0.18, 0, 0.5, 0, 0.4, 0]   # x y z roll pitch yaw
     fov: 1.047
     width: 1280
     height: 720

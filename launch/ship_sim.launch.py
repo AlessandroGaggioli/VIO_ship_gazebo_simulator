@@ -36,15 +36,15 @@ def get_mode_config(mode_str):
     elif mode_str == 'navigation_no_comp':
         return {
             'roll_amplitude': 0.3,
-            'pitch_amplitude': 0.2,
-            'heave_amplitude': 0.1,
+            'pitch_amplitude': 0.0,
+            'heave_amplitude': 0.0,
             'imu_enable': False
         }
     elif mode_str == 'navigation':
         return {
             'roll_amplitude': 0.3,
-            'pitch_amplitude': 0.2,
-            'heave_amplitude': 0.1,
+            'pitch_amplitude': 0.0,
+            'heave_amplitude': 0.0,
             'imu_enable': True
         }
     else:
@@ -55,7 +55,7 @@ def generate_launch_description():
 
     mode_str = 'navigation'
     debug_camera = False
-    odom_type = 'ekf'
+    odom_type = 'loosely'
 
     # Ensure there is a single simulation/clock source.
     # Stale gz/bridge processes from previous runs can cause /clock jumps,
@@ -384,16 +384,16 @@ def generate_launch_description():
 
 
     if odom_type in ('loosely'):
-        wheel_tf_bridge = Node(
-            package='ros_gz_bridge',
-            executable='parameter_bridge',
-            name='wheel_tf_bridge',
-            arguments=['/model/turtlebot3_waffle/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V'],
-            remappings=[
-                ('/model/turtlebot3_waffle/tf', '/tf')
-            ],
-            output='screen'
-        )
+        # wheel_tf_bridge = Node(
+        #     package='ros_gz_bridge',
+        #     executable='parameter_bridge',
+        #     name='wheel_tf_bridge',
+        #     arguments=['/model/turtlebot3_waffle/tf@tf2_msgs/msg/TFMessage[gz.msgs.Pose_V'],
+        #     remappings=[
+        #         ('/model/turtlebot3_waffle/tf', '/tf')
+        #     ],
+        #     output='screen'
+        # )
 
         stereo_odom_remappings.append(('odom', '/stereo_odom'))
         stereo_odom_remappings.append(('odom_local_map', '/stereo_odom_local_map'))
@@ -401,8 +401,8 @@ def generate_launch_description():
         stereo_odom_params = { # use imu data for stereo odometry
             'subscribe_imu': True,
             'wait_imu_to_init': True,
-            'guess_from_tf': True,
-            'guess_frame_id': 'odom',
+            'guess_from_tf': False,
+            #'guess_frame_id': 'odom',
             'publish_tf': True,
             'odom_frame_id': 'stereo_odom',
         }
@@ -486,7 +486,7 @@ def generate_launch_description():
 
         DeclareLaunchArgument('mode', default_value='navigation',description='Select the mode of operation: mapping, navigation_no_comp, navigation'),
         DeclareLaunchArgument('debug_camera', default_value='false', description='Enable or disable debug camera nodes (stereo_view and disparity_map)'),
-        DeclareLaunchArgument('odom_type',default_value='ekf', description='Select the odometry type to use: loosely (stereo+imu+guess) or ekf (wheel+imu+stereo in EKF). tight is alias of loosely.'),
+        DeclareLaunchArgument('odom_type',default_value='loosely', description='Select the odometry type to use: loosely (stereo+imu+guess) or ekf (wheel+imu+stereo in EKF). tight is alias of loosely.'),
 
         AppendEnvironmentVariable(
             name='GZ_SIM_SYSTEM_PLUGIN_PATH',
@@ -538,7 +538,8 @@ def generate_launch_description():
     if odom_type == 'ekf':
         nodes_list.append(ekf_odom_node) # run EKF only when selected as odometry architecture
     elif odom_type == 'loosely':
-        nodes_list.append(TimerAction(period=5.0, actions=[wheel_tf_bridge]))
+        #nodes_list.append(TimerAction(period=5.0, actions=[wheel_tf_bridge]))
+        print("loosely")
    
     if debug_camera:  # append the stereo view and disparity map nodes only if debug_camera is enabled
         nodes_list.append(rqt_image_view)

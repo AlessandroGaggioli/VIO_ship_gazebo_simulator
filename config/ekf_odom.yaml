@@ -5,7 +5,7 @@ ekf_filter_node:
     predict_to_current_time: true
     transform_time_offset: 0.30
     sensor_timeout: 0.3
-    two_d_mode: true
+    two_d_mode: false
     publish_tf: true # keep EKF TF disabled while stereo_odometry owns odom TF
               # avoids competing TF publishers for base_footprint
 
@@ -26,7 +26,7 @@ ekf_filter_node:
     odom0: /robot/odom
     odom0_config: [
       false,  false,  false, # X, Y, Z
-      false, false, false, # roll, pitch, yaw
+      true, true, true, # roll, pitch, yaw
       true,  true,  false, # X_dot, Y_dot, Z_dot
       false, false, true, # roll_dot, pitch_dot, yaw_dot
       false, false, false # X_ddot, Y_ddot, Z_ddot
@@ -40,9 +40,9 @@ ekf_filter_node:
     odom1: /stereo_odom
     odom1_config: [
       true,  true,  false, # X, Y, Z
-      false, false, false,  # roll, pitch, yaw
+      true, true, true,  # roll, pitch, yaw
       false, false, false, # X_dot, Y_dot, Z_dot
-      false, false, false, # roll_dot, pitch_dot, yaw_dot
+      true, true, true, # roll_dot, pitch_dot, yaw_dot
       false, false, false  # X_ddot, Y_ddot, Z_ddot
     ]
     odom1_queue_size: 20
@@ -57,12 +57,14 @@ ekf_filter_node:
       false,  false,  false, # roll, pitch, yaw
       false, false, false, # X_dot, Y_dot, Z_dot
       true,  true,  true, # roll_dot, pitch_dot, yaw_dot
-      true, true, true # X_ddot, Y_ddot, Z_ddot
+      true, true, false # X_ddot, Y_ddot, Z_ddot
     ]
     imu0_queue_size: 20 
     imu0_differential: false
     imu0_relative: false 
-    imu0_remove_gravitational_acceleration: false #assumes that the IMU data is not compensated from gravity.
+    imu0_remove_gravitational_acceleration: true #assumes that the IMU data is not compensated from gravity.
+    # [ADVANCED] Some IMUs automatically remove acceleration due to gravity, and others don't. If yours doesn't, please set
+    # this to true, and *make sure* your data conforms to REP-103, specifically, that the data is in ENU frame.
 
     # 15x15 process covariance matrix 
     # State order: x y z roll pitch yaw x_dot y_dot z_dot roll_dot pitch_dot yaw_dot x_ddot y_ddot z_ddot

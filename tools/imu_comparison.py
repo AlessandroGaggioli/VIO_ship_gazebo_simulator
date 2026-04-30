@@ -18,6 +18,7 @@ from rclpy.qos import qos_profile_sensor_data
 import csv
 import matplotlib.pyplot as plt
 from collections import deque
+from scipy.spatial.transform import Rotation
 
 class ImuLogger(Node):
     def __init__(self, csv_path='imu_comparison.csv'):
@@ -38,10 +39,22 @@ class ImuLogger(Node):
         self.sample_count = 0
        
         self.writer.writerow([
-            'timestamp', 
-            'raw_acc_x', 'raw_acc_y', 'raw_acc_z', 'raw_omega_x', 'raw_omega_y', 'raw_omega_z',
-            'comp_acc_x', 'comp_acc_y', 'comp_acc_z', 'comp_omega_x', 'comp_omega_y', 'comp_omega_z',
-            'ship_acc_x', 'ship_acc_y', 'ship_acc_z', 'ship_omega_x', 'ship_omega_y', 'ship_omega_z'
+            'timestamp',
+
+            # Raw robot IMU
+            'raw_acc_x', 'raw_acc_y', 'raw_acc_z',
+            'raw_omega_x', 'raw_omega_y', 'raw_omega_z',
+            'raw_roll', 'raw_pitch', 'raw_yaw',
+
+            # Compensated robot IMU
+            'comp_acc_x', 'comp_acc_y', 'comp_acc_z',
+            'comp_omega_x', 'comp_omega_y', 'comp_omega_z',
+            'comp_roll', 'comp_pitch', 'comp_yaw',
+
+            # Ship IMU
+            'ship_acc_x', 'ship_acc_y', 'ship_acc_z',
+            'ship_omega_x', 'ship_omega_y', 'ship_omega_z',
+            'ship_roll', 'ship_pitch', 'ship_yaw'
         ])
 
         # Buffers for plotting time-series of each axis.
@@ -52,6 +65,9 @@ class ImuLogger(Node):
         self.comp_omega = {'x': [], 'y': [], 'z': []}
         self.ship_acc = {'x': [], 'y': [], 'z': []}
         self.ship_omega = {'x': [], 'y': [], 'z': []}
+        self.raw_orientation = {'x': [], 'y': [], 'z': []}
+        self.comp_orientation = {'x': [], 'y': [], 'z': []}
+        self.ship_orientation = {'x': [], 'y': [], 'z': []}
 
         # Approximate-time synchronization settings.
         # A compensated sample is logged only if raw and ship samples are close in time.
@@ -128,6 +144,12 @@ class ImuLogger(Node):
         ro_x = raw_msg.angular_velocity.x
         ro_y = raw_msg.angular_velocity.y
         ro_z = raw_msg.angular_velocity.z
+        rq = [
+            raw_msg.orientation.x,
+            raw_msg.orientation.y,
+            raw_msg.orientation.z,
+            raw_msg.orientation.w 
+        ]
 
         # --- compensated data ---
         ca_x = msg.linear_acceleration.x
@@ -136,6 +158,12 @@ class ImuLogger(Node):
         co_x = msg.angular_velocity.x
         co_y = msg.angular_velocity.y
         co_z = msg.angular_velocity.z
+        cq = [
+            msg.orientation.x,
+            msg.orientation.y,
+            msg.orientation.z,
+            msg.orientation.w 
+        ]
 
         # --- ship data ---
         sa_x = ship_msg.linear_acceleration.x
@@ -144,13 +172,30 @@ class ImuLogger(Node):
         so_x = ship_msg.angular_velocity.x
         so_y = ship_msg.angular_velocity.y
         so_z = ship_msg.angular_velocity.z
+        sq = [
+            ship_msg.orientation.x,
+            ship_msg.orientation.y,
+            ship_msg.orientation.z,
+            ship_msg.orientation.w 
+        ]
 
-        # Write synchronized values to CSV.
+        # --- Quaternions to Roll Pitch Yaw conversion ---
+
+        rr = Rotation.from_quat(rq).as_euler('xyz', degrees=False)
+        rr_x, rr_y, rr_z = rr
+
+        cr = Rotation.from_quat(cq).as_euler('xyz', degrees=False)
+        cr_x, cr_y, cr_z = cr
+        
+        sr = Rotation.from_quat(sq).as_euler('xyz', degrees=False)
+        sr_x, sr_y, sr_z = sr
+
+        # --- Write synchronized values to CSV ---
         self.writer.writerow([
             current_time, 
-            ra_x, ra_y, ra_z, ro_x, ro_y, ro_z,
-            ca_x, ca_y, ca_z, co_x, co_y, co_z,
-            sa_x, sa_y, sa_z, so_x, so_y, so_z
+            ra_x, ra_y, ra_z, ro_x, ro_y, ro_z, rr_x, rr_y, rr_z,
+            ca_x, ca_y, ca_z, co_x, co_y, co_z, cr_x, cr_y, cr_z,
+            sa_x, sa_y, sa_z, so_x, so_y, so_z, sr_x, sr_y, sr_z
         ])
         self.sample_count += 1
 
@@ -167,6 +212,9 @@ class ImuLogger(Node):
         self.raw_omega['x'].append(ro_x)
         self.raw_omega['y'].append(ro_y)
         self.raw_omega['z'].append(ro_z)
+        self.raw_orientation['x'].append(rr_x)
+        self.raw_orientation['y'].append(rr_y)
+        self.raw_orientation['z'].append(rr_z)
 
         self.comp_acc['x'].append(ca_x)
         self.comp_acc['y'].append(ca_y)
@@ -174,6 +222,9 @@ class ImuLogger(Node):
         self.comp_omega['x'].append(co_x)
         self.comp_omega['y'].append(co_y)
         self.comp_omega['z'].append(co_z)
+        self.comp_orientation['x'].append(cr_x)
+        self.comp_orientation['y'].append(cr_y)
+        self.comp_orientation['z'].append(cr_z)
 
         self.ship_acc['x'].append(sa_x)
         self.ship_acc['y'].append(sa_y)
@@ -181,6 +232,9 @@ class ImuLogger(Node):
         self.ship_omega['x'].append(so_x)
         self.ship_omega['y'].append(so_y)
         self.ship_omega['z'].append(so_z)
+        self.ship_orientation['x'].append(sr_x)
+        self.ship_orientation['y'].append(sr_y)
+        self.ship_orientation['z'].append(sr_z)
 
 def plot_results(node):
     # Plot only if at least one synchronized sample has been recorded.
@@ -188,13 +242,14 @@ def plot_results(node):
         print("No data collected to plot.")
         return
 
-    # Layout: first row acceleration (x,y,z), second row angular velocity (x,y,z).
-    fig, axs = plt.subplots(2, 3, figsize=(16, 9))
+    # Layout: first row acceleration (x,y,z), second row angular velocity (x,y,z), third row orientation (x,y,z).
+    fig, axs = plt.subplots(3, 3, figsize=(16, 9))
     fig.suptitle('Comparison IMU Robot: Raw (Red) vs Compensated (Blue) + Ship (Green)', fontsize=16)
 
     asse_nomi = ['x', 'y', 'z']
     titoli_acc = ['Linear Acceleration X', 'Linear Acceleration Y', 'Linear Acceleration Z']
     titoli_omega = ['Angular Velocity X', 'Angular Velocity Y', 'Angular Velocity Z']
+    titoli_orientation = ['Orientation R', 'Orientation P', 'Orientation Y']
 
     # First row: linear acceleration comparison for x, y, z.
     for i, asse in enumerate(asse_nomi):
@@ -217,6 +272,18 @@ def plot_results(node):
         axs[1, i].set_ylabel('rad/s')
         axs[1, i].grid(True, linestyle='--', alpha=0.7)
         axs[1, i].legend()
+
+    # Third row: orientation comparison for roll,pitch,yaw (x,y,z) 
+
+    for i, asse in enumerate(asse_nomi):
+        axs[2, i].plot(node.t_data, node.raw_orientation[asse], label='Raw', color='red', alpha=0.6, linewidth=1.5)
+        axs[2, i].plot(node.t_data, node.comp_orientation[asse], label='Compensated', color='blue', alpha=0.8, linewidth=1.5)
+        axs[2, i].plot(node.t_data, node.ship_orientation[asse], label='Ship', color='green', alpha=0.8, linewidth=1.5)
+        axs[2, i].set_title(titoli_orientation[i])
+        axs[2, i].set_xlabel('time (s)')
+        axs[2, i].set_ylabel('radians')
+        axs[2, i].grid(True, linestyle='--', alpha=0.7)
+        axs[2, i].legend()
 
     plt.tight_layout()
     plt.show()
