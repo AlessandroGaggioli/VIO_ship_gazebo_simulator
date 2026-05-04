@@ -27,7 +27,7 @@
     # Sincronizzazione
     use_sim_time: true
     approx_sync: true
-    sync_queue_size: 50
+    sync_queue_size: 20
     wait_for_transform: 1.0
 
     # ==========================================
@@ -37,6 +37,7 @@
     Rtabmap/PublishPdf: 'true'
     Mem/IncrementalMemory: 'true'
     Mem/InitWMWithAllNodes: 'false'
+    Mem/UseOdomFeatures: 'false'
     
     # Creazione della Mappa 2D (Occupancy Grid)
     RGBD/CreateOccupancyGrid: 'true'
@@ -68,6 +69,7 @@
     StereoSGBM/SpeckleWindowSize: '500' 
     StereoSGBM/SpeckleRange: '32' 
     Vis/FeatureType: '1' # 6 = GFTT/BRIEF #1 = SIFT
+    Kp/DetectorStrategy: '1' # Match feature detector strategy with SIFT.
     # GFTT/QualityLevel: '0.0001' 
     # GFTT/MinDistance: '3'
     SIFT/ContrastThreshold: '0.04'
@@ -88,31 +90,32 @@
     tf_prefix: ''
     wait_for_transform: 1.0
     initial_pose: '0 0 0 0 0 0' # x y z roll pitch yaw
-    topic_queue_size: 50
-    sync_queue_size: 100 
+    topic_queue_size: 20
+    sync_queue_size: 30 
     qos: 1 # Use a reliable QoS profile for stereo odometry to ensure we get all the data, even if it means some latency.
     qos_camera_info: 1 # Use a reliable QoS profile for camera info to ensure we get the calibration data, which is critical for odometry performance.
     qos_imu: 1 # Use a reliable QoS profile for IMU data to ensure we get all the measurements, which are important for accurate odometry, especially during fast movements or in low-texture environments.
-    imu_queue_size: 100
+    imu_queue_size: 50
     guess_min_translation: 0.005
     guess_min_rotation: 0.005
     guess_min_time: 0.06
     # Increase valid disparity range for near wall scenes.
     Stereo/MaxDisparity: '256'
     # Be less brittle when features become temporarily poor.
-    Vis/MinInliers: '12'
+    Vis/MinInliers: '10'
     # Use descriptor-based matching (more robust to brightness/exposure changes than optical flow).
     Vis/CorType: '0'
     # Keep more keypoints to reduce feature starvation in low-texture views.
     Kp/MaxFeatures: '1000'
     # Recover quickly after consecutive registration failures.
-    Odom/ResetCountdown: '1'
+    Odom/ResetCountdown: '3'
     Odom/Strategy: '0' #[0=Frame-to-Map (F2M) 1=Frame-to-Frame (F2F) 2=Fovis 3=viso2 4=DVO-SLAM 5=ORB_SLAM2 6=OKVIS 7=LOAM 8=MSCKF_VIO 9=VINS-Fusion 10=OpenVINS 11=FLOAM 12=Open3D]
     StereoSGBM/BlockSize: '21' #default 15, rising to 21 to improve robustness in low-texture areas
     StereoSGBM/TextureThreshold: '0' #default 10, lowering to 0 to allow more matches in low-texture areas
     StereoSGBM/SpeckleWindowSize: '500' 
     StereoSGBM/SpeckleRange: '32'     
     Vis/FeatureType: '1' # 1 = Sift
+    Kp/DetectorStrategy: '1' # Match feature detector strategy with SIFT.
     # GFTT/QualityLevel: '0.0001' 
     # GFTT/MinDistance: '3'
     SIFT/ContrastThreshold: '0.04'
@@ -123,3 +126,151 @@
 #   ros__parameters:
 #     use_sim_time: True
 #     wait_time: 3.0
+
+
+# # RTAB-Map parameters 
+# # ============================
+
+# # These parameters configure RTAB-Map for our specific use case of autonomous exploration 
+# # with a simulated robot in Gazebo.
+
+# # The parameters are organized into categories for clarity, including sensor subscriptions,
+# # synchronization, frame IDs, and memory/mapping settings. 
+
+# /rtabmap:
+#   ros__parameters:
+#     # ==========================================
+#     # ROS PARAMETERS
+#     # ==========================================
+#     frame_id: 'base_footprint'
+#     map_frame_id: 'map'
+#     publish_tf: true
+    
+#     # Sottoscrizioni
+#     subscribe_stereo: false
+#     subscribe_depth: false
+#     subscribe_rgbd: true
+#     subscribe_rgb: false 
+#     subscribe_odom: false
+#     subscribe_imu: true
+
+#     # Sincronizzazione
+#     use_sim_time: true
+#     approx_sync: true
+#     sync_queue_size: 50
+#     wait_for_transform: 1.0
+
+#     # ==========================================
+#     # RTABMAP PARAMETERS
+#     # ==========================================
+#     # Modalità Mapping (SLAM)
+#     Rtabmap/PublishPdf: 'true'
+#     Mem/IncrementalMemory: 'true'
+#     Mem/InitWMWithAllNodes: 'false'
+#     Mem/UseOdomGravity: 'true'
+#     Mem/STMSize: '30'
+
+    
+#     # Creazione della Mappa 2D (Occupancy Grid)
+#     RGBD/CreateOccupancyGrid: 'true'
+#     RGBD/ProximityBySpace: 'true'
+#     RGBD/OptimizeFromGraphEnd: 'true'
+#     RGBD/OptimizeMaxError: '5.0'
+#     RGBD/ProximityAngle: '60'
+#     RGBD/LocalRadius: '5.0'
+
+#     Grid/Sensor: '1'                 # 1 = depth/stereo
+#     Grid/DepthDecimation: '2'        # Decimazione per alleggerire il carico CPU
+#     Grid/CellSize: '0.05'            # Risoluzione mappa 5cm
+#     Grid/RangeMin: '0.001'
+#     Grid/RangeMax: '3.0'
+#     Grid/RayTracing: 'true'
+#     Grid/MapFrameProjection: 'true'
+#     Grid/3D: 'false'                 # Proiezione 2D
+    
+#     # Filtraggio Ostacoli/Pavimento
+#     Grid/NormalsSegmentation: 'false'
+#     Grid/MaxGroundHeight: '0.05'
+#     Grid/MaxObstacleHeight: '0.5'
+    
+#     # Filtraggio Rumore Stereo
+#     Grid/NoiseFilteringRadius: '0.0'
+#     Grid/NoiseFilteringMinNeighbors: '0'
+
+#     # Ottimizzazione
+#     Optimizer/GravitySigma: '0.3'
+#     Optimizer/Strategy: '2'
+
+#     #StereoSGBM
+#     StereoSGBM/BlockSize: '21' #default 15, rising to 21 to improve robustness in low-texture areas
+#     StereoSGBM/TextureThreshold: '0' #default 10, lowering to 0 to allow more matches in low-texture areas
+#     StereoSGBM/SpeckleWindowSize: '500' 
+#     StereoSGBM/SpeckleRange: '32' 
+#     Vis/FeatureType: '8' # 6 = GFTT/BRIEF #1 = SIFT
+#     GFTT/QualityLevel: '0.001' 
+#     GFTT/MinDistance: '5'
+#     SIFT/ContrastThreshold: '0.04'
+#     SIFT/EdgeThreshold: '10'
+#     ORB/ScaleFactor: '1.2'         
+#     ORB/NLevels: '8'
+
+#     Reg/Force3DoF: 'false'
+#     RGBD/ForceOdom3DoF: 'false'
+#     Reg/Strategy: '2'
+#     Icp/CorrespondenceRatio: '0.2'
+#     Kp/MaxFeatures: '1000'
+#     Vis/MinInliers: '10'
+#     Vis/MaxFeatures: '1000'         
+#     Vis/MinInliers: '10'           
+#     Vis/CorNNType: '1'        
+#     Rtabmap/LoopThr: '0.1'
+#     Kp/DetectorStrategy: '8'
+
+
+# /stereo_odometry:
+#   ros__parameters:
+#     use_sim_time: True
+#     approx_sync: True
+#     approx_sync_max_interval: 0.04
+#     subscribe_rgbd: true
+#     frame_id: 'base_footprint'
+#     odom_frame_id: 'stereo_odom'
+#     publish_tf: False
+#     tf_prefix: ''
+#     wait_for_transform: 1.0
+#     initial_pose: '0 0 0 0 0 0' # x y z roll pitch yaw
+#     topic_queue_size: 50
+#     sync_queue_size: 100 
+#     qos: 1 # Use a reliable QoS profile for stereo odometry to ensure we get all the data, even if it means some latency.
+#     qos_camera_info: 1 # Use a reliable QoS profile for camera info to ensure we get the calibration data, which is critical for odometry performance.
+#     qos_imu: 1 # Use a reliable QoS profile for IMU data to ensure we get all the measurements, which are important for accurate odometry, especially during fast movements or in low-texture environments.
+#     imu_queue_size: 100
+#     guess_min_translation: 0.005
+#     guess_min_rotation: 0.005
+#     guess_min_time: 0.06
+#     # Increase valid disparity range for near wall scenes.
+#     Stereo/MaxDisparity: '256'
+#     # Be less brittle when features become temporarily poor.
+#     Vis/MinInliers: '12'
+#     # Use descriptor-based matching (more robust to brightness/exposure changes than optical flow).
+#     Vis/CorType: '0'
+#     # Keep more keypoints to reduce feature starvation in low-texture views.
+#     Kp/MaxFeatures: '1000'
+#     # Recover quickly after consecutive registration failures.
+#     Odom/ResetCountdown: '1'
+#     Odom/Strategy: '0' #[0=Frame-to-Map (F2M) 1=Frame-to-Frame (F2F) 2=Fovis 3=viso2 4=DVO-SLAM 5=ORB_SLAM2 6=OKVIS 7=LOAM 8=MSCKF_VIO 9=VINS-Fusion 10=OpenVINS 11=FLOAM 12=Open3D]
+#     Stereo/DenseStrategy: '1'   
+#     StereoSGBM/BlockSize: '21' #default 15, rising to 21 to improve robustness in low-texture areas
+#     StereoSGBM/TextureThreshold: '0' #default 10, lowering to 0 to allow more matches in low-texture areas
+#     StereoSGBM/SpeckleWindowSize: '500' 
+#     StereoSGBM/SpeckleRange: '32'     
+#     Vis/FeatureType: '8' # 1 = Sift
+#     GFTT/QualityLevel: '0.0001' 
+#     GFTT/MinDistance: '3'
+#     SIFT/ContrastThreshold: '0.04'
+#     SIFT/EdgeThreshold: '10'
+#     Odom/FillInfoData: 'true'
+#     Vis/MaxFeatures: '1000'         
+#     Vis/MinInliers: '10'             
+#     Vis/CorNNType: '1'         
+#     Kp/DetectorStrategy: '8'      

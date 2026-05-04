@@ -52,6 +52,8 @@ install(DIRECTORY
 
 install(PROGRAMS
   src/imu_compensator.py
+  src/cmd_vel_pub.py
+  src/traj_recorder.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

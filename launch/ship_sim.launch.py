@@ -19,8 +19,8 @@ import subprocess
 
 from ament_index_python.packages import get_package_share_directory, get_package_prefix
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess, AppendEnvironmentVariable, LogInfo, DeclareLaunchArgument, IncludeLaunchDescription, TimerAction
-from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.actions import ExecuteProcess, AppendEnvironmentVariable, LogInfo, DeclareLaunchArgument, TimerAction, RegisterEventHandler
+from launch.event_handlers import OnProcessStart
 from launch_ros.actions import Node
 import xml.etree.ElementTree as ET
 
@@ -349,7 +349,7 @@ def generate_launch_description():
         parameters=[{
             'use_sim_time': True,
             'approx_sync': True,
-            'approx_sync_max_interval': 0.05, # maximum time difference between left and right images to be considered synchronized
+            'approx_sync_max_interval': 0.01, # maximum time difference between left and right images to be considered synchronized
             'sync_queue_size': 10
         }],
         remappings=[
@@ -427,10 +427,7 @@ def generate_launch_description():
         output='screen',
         parameters=[rtabmap_parameters_path, {'use_sim_time': True}, stereo_odom_params],
         remappings=stereo_odom_remappings
-    )
-
-    delayed_stereo_odometry_node = TimerAction(period=10.0, actions=[stereo_odometry_node])
-    
+    )    
     #==============================================================================
     # Node for SLAM and Navigation (RTAB-Map and Nav2)
     #==============================================================================
@@ -461,8 +458,6 @@ def generate_launch_description():
         arguments=['-d']
     )
 
-    delayed_rtabmap_slam_node = TimerAction(period=10.5, actions=[rtabmap_slam_node])
-
     #==========
     # RVIZ
     #===========
@@ -479,8 +474,17 @@ def generate_launch_description():
     )
 
     #=============================
-    # Nodes List
+    # TIMING CONFIGURATION
     #=============================
+       
+    CAMERA_STARTUP = 2.5      
+    SYNC_STARTUP = CAMERA_STARTUP + 1.0    
+    ODOM_STARTUP = SYNC_STARTUP + 2.5      
+    SLAM_STARTUP = ODOM_STARTUP + 2.0   
+
+    #=============================
+    # Nodes List
+    #=============================   
 
     nodes_list = [
 
@@ -506,6 +510,7 @@ def generate_launch_description():
             cmd=[
                 'gz', 'sim','-r', sdf_out
             ],
+            name='gazebo_simulator',
             output='screen'
         ),
 
@@ -520,31 +525,44 @@ def generate_launch_description():
             output='screen'
         ),
 
-        left_camera_tf, # static transform from base_footprint to left camera
-        right_camera_tf, # static transform from base_footprint to right camera
-        imu_tf, # static transform from base_footprint to IMU
-        base_link_tf, # static transform from base_footprint to base_link
-        camera_link_left_tf, # static transform from base_link to left camera link
-        camera_link_right_tf, # static transform from base_link to right camera link
-        left_camera_rect, # node for rectifying the left camera image
-        right_camera_rect, # node for rectifying the right camera image
-        compensate_imu, # node for compensating the IMU readings w.r.t. the ship motion
-        stereo_sync_node, # node for synchronizing the left and right camera images and packaging them into a single RGBD image topic
-        delayed_stereo_odometry_node, # node for generating odometry from the stereo camera data, delayed to ensure cameras and bridge are up
-        delayed_rtabmap_slam_node, # node for SLAM and Navigation using RTAB-Map, delayed to ensure stereo odometry is up
-        rviz2
+        TimerAction(period=CAMERA_STARTUP, actions=[
+            left_camera_tf,
+            right_camera_tf,
+            imu_tf,
+            base_link_tf,
+            camera_link_left_tf,
+            camera_link_right_tf,
+            left_camera_rect,
+            right_camera_rect,
+            compensate_imu,  
+        ]),
+
+        TimerAction(period=SYNC_STARTUP, actions=[stereo_sync_node]),
+
+        TimerAction(period=ODOM_STARTUP, actions=[stereo_odometry_node]),
+
+        TimerAction(period=SLAM_STARTUP, actions=[rtabmap_slam_node]),
+
+        rviz2,
     ]
 
     if odom_type == 'ekf':
-        nodes_list.append(ekf_odom_node) # run EKF only when selected as odometry architecture
+                nodes_list.append(
+            TimerAction(period=ODOM_STARTUP - 1.0, actions=[ekf_odom_node])
+        )
     elif odom_type == 'loosely':
-        #nodes_list.append(TimerAction(period=5.0, actions=[wheel_tf_bridge]))
+        # nodes_list.append(
+        #     TimerAction(period=ODOM_STARTUP - 1.0, actions=[wheeel_tf_bridge])
+        # )
         print("loosely")
    
     if debug_camera:  # append the stereo view and disparity map nodes only if debug_camera is enabled
-        nodes_list.append(rqt_image_view)
-        nodes_list.append(stereo_view)
-        nodes_list.append(disparity_map)
+        nodes_list.append(
+            TimerAction(period=CAMERA_STARTUP + 0.5, actions=[rqt_image_view])
+        )
+        nodes_list.append(
+            TimerAction(period=SYNC_STARTUP + 0.5, actions=[stereo_view, disparity_map])
+        )
 
 
     #=============================

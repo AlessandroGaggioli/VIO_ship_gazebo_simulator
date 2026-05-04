@@ -401,8 +401,8 @@ for cam in _objects.get('cameras', []):
                             <scale>@(scale[0]) @(scale[1]) @(scale[2])</scale>
                         </mesh>
                     </geometry>
-                    <ambient>1 1 1 1</ambient>
-                    <diffuse>1 1 1 1</diffuse>
+                    <!-- <ambient>1 1 1 1</ambient>
+                    <diffuse>1 1 1 1</diffuse> -->
                     <cast_shadows>true</cast_shadows>
                 </visual>
 
