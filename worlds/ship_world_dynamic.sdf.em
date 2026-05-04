@@ -99,7 +99,7 @@ for ob in _objects.get('obstacles', []):
 robot_mass = 1.37 
 robot_size = (0.354, 0.178, 0.144)
 
-robot_x     = - (corridor_size[0] * scale[0] / 2.0) + (robot_size[0] / 2.0) + 1.7 
+robot_x     = - (corridor_size[0] * scale[0] / 2.0) + (robot_size[0] / 2.0) + 3.7 
 robot_y     = 0.0 
 robot_z     = - floor_distance + 0.01
 robot_roll  = 0.0
