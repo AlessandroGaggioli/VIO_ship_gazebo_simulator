@@ -33,7 +33,7 @@ install(TARGETS ShipMotionPlugin
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
   # the following line skips the linter which checks for copyrights
-  # comment the line when a copyright and license is added to all source files
+  # comment the line when a copyright and license is added to all source files 
   set(ament_cmake_copyright_FOUND TRUE)
   # the following line skips cpplint (only works in a git repo)
   # comment the line when this package is in a git repo and when
@@ -54,6 +54,9 @@ install(PROGRAMS
   src/imu_compensator.py
   src/cmd_vel_pub.py
   src/traj_recorder.py
+  src/odom_comparator.py
+  tools/imu_comparator.py
+  tools/plot_imu_csv.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

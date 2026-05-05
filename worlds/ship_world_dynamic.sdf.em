@@ -512,6 +512,19 @@ for cam in _objects.get('cameras', []):
                 <max_step_size>@(max_step_size)</max_step_size>
             </plugin>
 
+            <plugin filename="gz-sim-joint-state-publisher-system" name="gz::sim::systems::JointStatePublisher">
+                <topic>/ship/joint_states</topic>
+                <joint_name>heave_joint</joint_name>
+                <joint_name>roll_joint</joint_name>
+                <joint_name>pitch_joint</joint_name>
+            </plugin>
+
+            <!-- <plugin filename="gz-sim-pose-publisher-system" name="gz::sim::systems::PosePublisher">
+                <publish_link_pose>true</publish_link_pose>
+                <use_pose_vector_msg>true</use_pose_vector_msg>
+                <update_frequency>50</update_frequency>
+            </plugin> -->
+
             <!--===============================-->
             <!-- OBSTACLES-->
             <!--===============================-->

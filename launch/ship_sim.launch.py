@@ -26,7 +26,7 @@ import xml.etree.ElementTree as ET
 
 # Function to get the configuration parameters based on the selected mode
 def get_mode_config(mode_str):
-    if mode_str == 'mapping':
+    if mode_str == 'no_motion':
         return {
             'roll_amplitude': 0.0,
             'pitch_amplitude': 0.0,
@@ -35,16 +35,16 @@ def get_mode_config(mode_str):
         }
     elif mode_str == 'navigation_no_comp':
         return {
-            'roll_amplitude': 0.3,
-            'pitch_amplitude': 0.0,
-            'heave_amplitude': 0.0,
+            'roll_amplitude': 0.2,
+            'pitch_amplitude': 0.1,
+            'heave_amplitude': 0.1,
             'imu_enable': False
         }
     elif mode_str == 'navigation':
         return {
-            'roll_amplitude': 0.3,
-            'pitch_amplitude': 0.0,
-            'heave_amplitude': 0.0,
+            'roll_amplitude': 0.2,
+            'pitch_amplitude': 0.1,
+            'heave_amplitude': 0.1,
             'imu_enable': True
         }
     else:
@@ -440,11 +440,12 @@ def generate_launch_description():
     rtabmap_slam_parameters = [rtabmap_parameters_path,{'use_sim_time': True}]
 
     if odom_type == 'ekf': 
+        #if odom_frame_id is set, RTAB-Map will not subscribe to /odometry/filtered 
         rtabmap_slam_remappings.append(('odom', '/odometry/filtered'))
-        rtabmap_slam_parameters.append({'odom_frame_id': 'odom_ekf'})
+        #rtabmap_slam_parameters.append({'odom_frame_id': 'odom_ekf'})
     elif odom_type == 'loosely':
         rtabmap_slam_remappings.append(('odom', '/stereo_odom'))
-        rtabmap_slam_parameters.append({'odom_frame_id': 'stereo_odom'}) # set the odom frame id to match the stereo odometry output
+        #rtabmap_slam_parameters.append({'odom_frame_id': 'stereo_odom'}) # set the odom frame id to match the stereo odometry output
     else:
         raise ValueError(f"Unknown odom_type: {odom_type}. Allowed values: loosely, ekf")
     
@@ -488,7 +489,7 @@ def generate_launch_description():
 
     nodes_list = [
 
-        DeclareLaunchArgument('mode', default_value='navigation',description='Select the mode of operation: mapping, navigation_no_comp, navigation'),
+        DeclareLaunchArgument('mode', default_value='navigation',description='Select the mode of operation: no_motion, navigation_no_comp, navigation'),
         DeclareLaunchArgument('debug_camera', default_value='false', description='Enable or disable debug camera nodes (stereo_view and disparity_map)'),
         DeclareLaunchArgument('odom_type',default_value='loosely', description='Select the odometry type to use: loosely (stereo+imu+guess) or ekf (wheel+imu+stereo in EKF). tight is alias of loosely.'),
 
