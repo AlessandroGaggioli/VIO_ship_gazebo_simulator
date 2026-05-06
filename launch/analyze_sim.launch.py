@@ -30,16 +30,29 @@ def generate_launch_description():
             'gt_robot_topic': '/robot/ground_truth/odom',
             'ship_joints_topic': '/ship/joint_states',
             'est_topic': '/stereo_odom' if odom_type == 'loosely' else '/stereo_odom_sync',
-            'sync_slop': 0.05
+            'sync_slop': 0.05,
+            'use_sim_time': True,
         }],
         output='screen'
     )
+
+    if odom_type == 'loosely':
+        imu_comparator_params=[{
+            'est_topic': '/stereo_odom',
+            'use_sim_time': True,
+        }]
+    elif odom_type == 'ekf':
+        imu_comparator_params=[{
+            'est_topic': '/ekf_odom',
+            'use_sim_time': True,
+        }]
 
     imu_comparator_node = Node(
         package='ship_gazebo',
         executable='imu_comparator.py',
         name='imu_comparator',
-        output='screen'
+        output='screen',
+        parameters=imu_comparator_params
     )
 
     pkg_share = get_package_share_directory('ship_gazebo') # get the share directory of the ship_gazebo package

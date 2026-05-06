@@ -9,8 +9,23 @@ import message_filters
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
 from rclpy.qos import qos_profile_sensor_data
+import matplotlib.gridspec as gridspec
+from geometry_msgs.msg import Twist
+
+C_BG        = "#FFFFFF"
+C_PANEL     = "#F4F4F8"
+C_ACCENT    = "#534AB7"
+C_TEAL      = "#0F6E56"
+C_CORAL     = "#993C1D"
+C_AMBER     = "#854F0B"
+C_BLUE      = "#185FA5"
+C_TEXT      = "#1C1C2E"
+C_SUBTEXT   = "#5A5A7A"
+C_GRID      = "#DCDCE8"
+
 
 class OdomComparator(Node):
+
     def __init__(self):
         super().__init__('odom_comparator')
 
@@ -18,30 +33,73 @@ class OdomComparator(Node):
         self.declare_parameter('ship_joints_topic', '/ship/joint_states')
         self.declare_parameter('est_topic', '')
         self.declare_parameter('sync_slop', 0.05)
+        self.declare_parameter('n_segments', 5)
 
-        self.sub_gt_robot = message_filters.Subscriber(self, Odometry, self.get_parameter('gt_robot_topic').value, qos_profile=qos_profile_sensor_data)
+        self.sub_gt_robot    = message_filters.Subscriber(self, Odometry,  self.get_parameter('gt_robot_topic').value,   qos_profile=qos_profile_sensor_data)
         self.sub_ship_joints = message_filters.Subscriber(self, JointState, self.get_parameter('ship_joints_topic').value, qos_profile=qos_profile_sensor_data)
-        self.sub_est = message_filters.Subscriber(self, Odometry, self.get_parameter('est_topic').value, qos_profile=qos_profile_sensor_data)
-      
-        self.ts = message_filters.ApproximateTimeSynchronizer([self.sub_gt_robot, self.sub_ship_joints, self.sub_est], queue_size=2000, slop=self.get_parameter('sync_slop').value)
+        self.sub_est         = message_filters.Subscriber(self, Odometry,  self.get_parameter('est_topic').value,        qos_profile=qos_profile_sensor_data)
+
+        self.ts = message_filters.ApproximateTimeSynchronizer(
+            [self.sub_gt_robot, self.sub_ship_joints, self.sub_est],
+            queue_size=2000, slop=self.get_parameter('sync_slop').value)
         self.ts.registerCallback(self.sync_callback)
 
         self.start_time = None
-        self.joint_idx = None
-        self.init_gt_pos, self.init_est_pos = None, None
-        self.init_gt_rot, self.init_est_rot = None, None
-        self.history = {'t': [], 'gt': [], 'est': [], 'e_pos': [], 'e_ori': [], 'e_lin': [], 'e_ang': []}
+        self.joint_idx  = None
+        self.init_gt_pos,  self.init_est_pos  = None, None
+        self.init_gt_rot,  self.init_est_rot  = None, None
+        self.history = {
+            't': [], 'gt': [], 'est': [],
+            'e_pos': [], 'e_ori': [], 'e_lin': [], 'e_ang': [],
+            'cmd_speed': [],
+        }
+
+        self.cmd_speed = 0.0   # latest commanded linear speed [m/s]
+        self.motion_started = False
+        self.last_motion_time = None
+        self.sub_cmd_vel = self.create_subscription(
+            Twist,
+            '/cmd_vel',
+            self.cmd_vel_callback,
+            10
+        )
 
     def _vec(self, msg): return np.array([msg.x, msg.y, msg.z])
     def _quat(self, msg): return np.array([msg.x, msg.y, msg.z, msg.w])
     def wrap_angle(self, angle): return (angle + np.pi) % (2 * np.pi) - np.pi
 
+    #############################################
+    # Core callback to compare GT and estimation
+    #############################################
+
+    def cmd_vel_callback(self, msg):
+        is_moving = any(abs(v) > 1e-3 for v in [msg.linear.x, msg.linear.y, msg.linear.z,
+                                                 msg.angular.x, msg.angular.y, msg.angular.z])
+        self.cmd_speed = np.sqrt(msg.linear.x**2 + msg.linear.y**2 + msg.linear.z**2)
+
+        if is_moving:
+            if not self.motion_started:
+                self.motion_started = True
+            self.last_motion_time = self.get_clock().now().nanoseconds / 1e9
+        self.currently_moving = is_moving
+
     def sync_callback(self, msg_gt_robot, msg_ship_joints, msg_est):
+        if not getattr(self, 'motion_started', False):
+            return
+            
+        current_time = self.get_clock().now().nanoseconds / 1e9
+        
+        # Se sono passati più di 5 secondi dall'ultimo movimento, smetti di registrare i dati
+        if self.last_motion_time is not None and (current_time - self.last_motion_time) > 5.0:
+            self._logger.info("Motion stopped for more than 5 seconds. Stopping data recording.")
+            return
+        
         curr_t = msg_est.header.stamp.sec + msg_est.header.stamp.nanosec * 1e-9
 
         if self.joint_idx is None:
             names = msg_ship_joints.name
-            self.joint_idx = [names.index(j) if j in names else -1 for j in ['heave_joint', 'roll_joint', 'pitch_joint']]
+            self.joint_idx = [names.index(j) if j in names else -1
+                              for j in ['heave_joint', 'roll_joint', 'pitch_joint']]
 
         p, v = msg_ship_joints.position, msg_ship_joints.velocity
         h_p, r_p, pi_p = [p[i] if i != -1 else 0.0 for i in self.joint_idx]
@@ -49,7 +107,7 @@ class OdomComparator(Node):
 
         pos_robot_w = self._vec(msg_gt_robot.pose.pose.position)
         rot_robot_w = R.from_quat(self._quat(msg_gt_robot.pose.pose.orientation))
-        
+
         ship_pos_w = np.array([0.0, 0.0, h_p])
         ship_rot_w = R.from_euler('XY', [r_p, pi_p])
 
@@ -57,48 +115,257 @@ class OdomComparator(Node):
         gt_rot = ship_rot_w.inv() * rot_robot_w
 
         v_ship_w = np.array([0.0, 0.0, h_v]) + np.cross([r_v, pi_v, 0.0], pos_robot_w - ship_pos_w)
-        inv_rot = rot_robot_w.inv()
-        gt_v_lin = self._vec(msg_gt_robot.twist.twist.linear) - inv_rot.apply(v_ship_w)
+        inv_rot  = rot_robot_w.inv()
+        gt_v_lin = self._vec(msg_gt_robot.twist.twist.linear)  - inv_rot.apply(v_ship_w)
         gt_v_ang = self._vec(msg_gt_robot.twist.twist.angular) - inv_rot.apply([r_v, pi_v, 0.0])
 
         est_pos = self._vec(msg_est.pose.pose.position)
         est_rot = R.from_quat(self._quat(msg_est.pose.pose.orientation))
-        
+
         if self.start_time is None:
-            self.start_time = curr_t
+            self.start_time   = curr_t
             self.init_gt_pos, self.init_est_pos = gt_pos, est_pos
             self.init_gt_rot, self.init_est_rot = gt_rot, est_rot
 
-        rel_gt_pos = gt_pos - self.init_gt_pos
+        rel_gt_pos  = gt_pos  - self.init_gt_pos
         rel_est_pos = est_pos - self.init_est_pos
-        euler_gt = (self.init_gt_rot.inv() * gt_rot).as_euler('xyz')
-        euler_est = (self.init_est_rot.inv() * est_rot).as_euler('xyz')
-        
+        euler_gt    = (self.init_gt_rot.inv() * gt_rot ).as_euler('xyz')
+        euler_est   = (self.init_est_rot.inv() * est_rot).as_euler('xyz')
+
         self.history['t'].append(curr_t - self.start_time)
         self.history['gt'].append(rel_gt_pos)
         self.history['est'].append(rel_est_pos)
         self.history['e_pos'].append(rel_est_pos - rel_gt_pos)
         self.history['e_ori'].append(self.wrap_angle(euler_est - euler_gt))
-        self.history['e_lin'].append(self._vec(msg_est.twist.twist.linear) - gt_v_lin)
+        self.history['e_lin'].append(self._vec(msg_est.twist.twist.linear)  - gt_v_lin)
         self.history['e_ang'].append(self._vec(msg_est.twist.twist.angular) - gt_v_ang)
+        self.history['cmd_speed'].append(self.cmd_speed)
+
+    ################
+    # metrics 
+    #################
+
+    def _metrics_dict(self, e_pos, e_ori, e_lin, e_ang, gt_pos, cmd_speed=None, t=None):
+        def stats(arr):
+            ate = np.linalg.norm(arr, axis=1)
+            return dict(rmse=np.sqrt(np.mean(ate**2)),
+                        mean=np.mean(ate),
+                        mx=np.max(ate),
+                        final=ate[-1],
+                        std=np.std(ate),
+                        ate=ate)
+
+        m = dict(pos=stats(e_pos), ori=stats(e_ori),
+                 lin=stats(e_lin), ang=stats(e_ang))
+
+        # Distance traveled: integrate the commanded speed (sampled at each sync tick)
+        # using the accurate sim-time timestamps. This avoids inflating the distance
+        # with sync-induced noise in gt_pos (position diffs) or with the oscillatory
+        # Y/Z residuals left in gt_v_lin after imperfect ship-velocity cancellation.
+        if cmd_speed is not None and t is not None and len(t) > 1:
+            t_arr = np.asarray(t)
+            dt_arr = np.diff(t_arr, prepend=t_arr[0])  # dt[0]=0 by convention
+            dist = float(np.sum(np.asarray(cmd_speed) * dt_arr))
+        elif len(gt_pos) > 1:
+            step_distances = np.linalg.norm(np.diff(gt_pos, axis=0), axis=1)
+            dist = np.sum(step_distances[step_distances > 0.005])
+        else:
+            dist = 1.0
+
+        # Drift = medium ATE / distance traveled
+        m['drift']    = m['pos']['mean'] / max(dist, 1e-3)
+        m['dist']     = dist
+        m['bias_pos'] = np.mean(e_pos, axis=0)
+        m['bias_ori'] = np.mean(e_ori, axis=0)
+        return m
+        
+    @staticmethod
+    def _panel(ax, title, color=None):
+        color = color or C_ACCENT
+        ax.set_facecolor(C_PANEL)
+        for sp in ax.spines.values():
+            sp.set_edgecolor(C_GRID)
+        ax.tick_params(colors=C_SUBTEXT, labelsize=8)
+        ax.set_title(title, color=color, fontsize=9, fontweight='bold', pad=6)
+        ax.grid(True, color=C_GRID, linewidth=0.5, alpha=0.9)
+
+    @staticmethod
+    def _kv(ax, rows, x0=0.04, y0=0.88, dy=0.13, fs=8.5):
+        for i, (k, v) in enumerate(rows):
+            ax.text(x0, y0 - i * dy, k, transform=ax.transAxes,
+                    fontsize=fs, color=C_SUBTEXT, va='top')
+            ax.text(1 - x0, y0 - i * dy, v, transform=ax.transAxes,
+                    fontsize=fs, color=C_TEXT, va='top', ha='right', fontweight='bold')
+        ax.axis('off')
+        ax.set_facecolor(C_PANEL)
 
     def plot_results(self):
-        if not self.history['t']: return
-            
-        h = {k: np.array(v) for k, v in self.history.items()}
-        ates = {k: np.linalg.norm(h[k], axis=1) for k in ['e_pos', 'e_ori', 'e_lin', 'e_ang']}
+        if not self.history['t']:
+            return
 
-        fig, axs = plt.subplots(3, 2, figsize=(15, 10))
-        axs[0,0].plot(h['gt'][:,0], h['gt'][:,1], 'k--', label='GT locale')
-        axs[0,0].plot(h['est'][:,0], h['est'][:,1], 'b', label='Stima')
-        axs[0,0].set_title('Trajectory 2D'); axs[0,0].legend(); axs[0,0].axis('equal'); axs[0,0].grid(True)
-        
-        for i, (k, title, color) in enumerate(zip(ates.keys(), ['Position [m]', 'Orientation [rad]', 'Linear Vel. [m/s]', 'Angular Vel. [rad/s]'], ['red', 'orange', 'green', 'purple'])):
-            ax = axs[(i+1)//2, (i+1)%2]
-            ax.plot(h['t'], ates[k], color=color)
-            ax.set_title(f'ATE {title}'); ax.grid(True)
-            
-        plt.tight_layout(); plt.show()
+        h = {k: np.array(v) for k, v in self.history.items()}
+
+        m     = self._metrics_dict(h['e_pos'], h['e_ori'], h['e_lin'], h['e_ang'],
+                                   h['gt'], h['cmd_speed'], h['t'])
+        n_seg = self.get_parameter('n_segments').value
+        t     = h['t']
+        n     = len(t)
+        seg_sz = n // n_seg
+
+        seg_metrics = []
+        for s in range(n_seg):
+            i0 = s * seg_sz
+            i1 = (s + 1) * seg_sz if s < n_seg - 1 else n
+            seg_metrics.append(self._metrics_dict(
+                h['e_pos'][i0:i1], h['e_ori'][i0:i1],
+                h['e_lin'][i0:i1], h['e_ang'][i0:i1],
+                h['gt'][i0:i1],
+                h['cmd_speed'][i0:i1],
+                h['t'][i0:i1]))
+
+        # ── figure layout ──────────────────────────────────────────────────
+        fig = plt.figure(figsize=(18, 14), facecolor=C_BG)
+        fig.suptitle("Odometry Evaluation Report", color=C_TEXT,
+                     fontsize=16, fontweight='bold', y=0.98)
+
+        gs_top = gridspec.GridSpec(1, 2, figure=fig,
+                                   top=0.93, bottom=0.68,
+                                   left=0.04, right=0.98, wspace=0.28)
+        gs_mid = gridspec.GridSpec(1, 4, figure=fig,
+                                   top=0.63, bottom=0.38,
+                                   left=0.04, right=0.98, wspace=0.32)
+        gs_bot = gridspec.GridSpec(2, 2, figure=fig,
+                                   top=0.33, bottom=0.04,
+                                   left=0.04, right=0.98,
+                                   hspace=0.42, wspace=0.28)
+
+        # ─────────────────────────────────────────────────────────────────
+        # ROW 1:  trajectory · position global metrics · RPE
+        # ─────────────────────────────────────────────────────────────────
+
+        # --- 2D Trajectory ---
+        ax_traj = fig.add_subplot(gs_top[0])
+        self._panel(ax_traj, "2D Trajectory", color=C_ACCENT)
+        ax_traj.plot(h['gt'][:, 0],  h['gt'][:, 1],  '--', color=C_TEAL,  lw=1.4, label='Ground truth', alpha=0.9)
+        ax_traj.plot(h['est'][:, 0], h['est'][:, 1], '-',  color=C_CORAL, lw=1.4, label='Estimate',        alpha=0.9)
+        ax_traj.set_xlabel('x  [m]', color=C_SUBTEXT, fontsize=8)
+        ax_traj.set_ylabel('y  [m]', color=C_SUBTEXT, fontsize=8)
+        ax_traj.legend(fontsize=7.5, facecolor=C_PANEL, edgecolor=C_GRID, labelcolor=C_TEXT)
+        ax_traj.set_aspect('equal', adjustable='datalim')
+
+        # Global metrics 
+        ax_tab = fig.add_subplot(gs_top[1])
+        ax_tab.set_title("Global Metrics", color=C_ACCENT, fontsize=9, fontweight='bold', pad=6)
+        p, o = m['pos'], m['ori']
+        rows = [
+            ("— Position —",          ""),
+            ("  RMSE",                 f"{p['rmse']:.4f} m"),
+            ("  ATE mean",            f"{p['mean']:.4f} m"),
+            ("  ATE max",          f"{p['mx']:.4f} m"),
+            ("  Final error",        f"{p['final']:.4f} m"),
+            ("  Std dev",              f"{p['std']:.4f} m"),
+            ("  Drift (mean/dist)",    f"{m['drift']*100:.3f} %"),
+            ("  Distance traveled",    f"{m['dist']:.2f} m"),
+            ("— Orientation —",       ""),
+            ("  RMSE",                 f"{o['rmse']:.4f} rad"),
+            ("  ATE mean",            f"{o['mean']:.4f} rad"),
+            ("  ATE max",          f"{o['mx']:.4f} rad"),
+            ("  Final error",        f"{o['final']:.4f} rad"),
+        ]
+        self._kv(ax_tab, rows, dy=0.073)
+
+
+        # ─────────────────────────────────────────────────────────────────
+        # ROW 2:  4 panels ATE over time
+        # ─────────────────────────────────────────────────────────────────
+        keys   = ['pos', 'ori', 'lin', 'ang']
+        labels = ['Position [m]', 'Orientation [rad]', 'Linear Vel. [m/s]', 'Angular Vel. [rad/s]']
+        colors = [C_CORAL, C_AMBER, C_TEAL, C_ACCENT]
+
+        for col, (key, lbl, clr) in enumerate(zip(keys, labels, colors)):
+            ax = fig.add_subplot(gs_mid[col])
+            self._panel(ax, f"ATE {lbl}", color=clr)
+            ate = m[key]['ate']
+            ax.plot(t, ate, color=clr, lw=1.1, alpha=0.9)
+            ax.fill_between(t, ate, alpha=0.12, color=clr)
+            ax.axhline(m[key]['rmse'], color=C_TEXT, lw=0.9, linestyle='--',
+                       alpha=0.5, label=f"RMSE {m[key]['rmse']:.4f}")
+            ax.set_xlabel('t  [s]', color=C_SUBTEXT, fontsize=7)
+            ax.legend(fontsize=6.5, facecolor=C_PANEL, edgecolor=C_GRID,
+                      labelcolor=C_TEXT, loc='upper left')
+            for s in range(1, n_seg):
+                tx = t[min(s * seg_sz, n - 1)]
+                ax.axvline(tx, color=C_GRID, lw=0.9, linestyle=':')
+        # ─────────────────────────────────────────────────────────────────
+        # ROW 3:  segment analysis
+        # ─────────────────────────────────────────────────────────────────
+
+        seg_labels = [
+            f"S{i+1}\n{t[min(i*seg_sz, n-1)]:.0f}–{t[min((i+1)*seg_sz-1, n-1)]:.0f}s"
+            for i in range(n_seg)]
+
+        # RMSE position per segment
+        ax_segp = fig.add_subplot(gs_bot[0, 0])
+        self._panel(ax_segp, "RMSE position per segment  [m]", color=C_CORAL)
+        vals_p = [sm['pos']['rmse'] for sm in seg_metrics]
+        bars = ax_segp.bar(seg_labels, vals_p, color=C_CORAL,
+                           edgecolor=C_GRID, linewidth=0.5, width=0.55, alpha=0.8)
+        for bar, v in zip(bars, vals_p):
+            ax_segp.text(bar.get_x() + bar.get_width()/2,
+                         bar.get_height() + max(vals_p) * 0.01,
+                         f"{v:.4f}", ha='center', va='bottom',
+                         color=C_TEXT, fontsize=7.5, fontweight='bold')
+        ax_segp.set_ylabel('RMSE [m]', color=C_SUBTEXT, fontsize=8)
+        ax_segp.tick_params(axis='x', labelsize=7, labelcolor=C_SUBTEXT)
+        ax_segp.tick_params(axis='y', labelsize=7, labelcolor=C_SUBTEXT)
+
+        # RMSE orientation per segment
+        ax_sego = fig.add_subplot(gs_bot[0, 1])
+        self._panel(ax_sego, "RMSE orientation per segment  [rad]", color=C_AMBER)
+        vals_o = [sm['ori']['rmse'] for sm in seg_metrics]
+        bars = ax_sego.bar(seg_labels, vals_o, color=C_AMBER,
+                           edgecolor=C_GRID, linewidth=0.5, width=0.55, alpha=0.8)
+        for bar, v in zip(bars, vals_o):
+            ax_sego.text(bar.get_x() + bar.get_width()/2,
+                         bar.get_height() + max(vals_o) * 0.01,
+                         f"{v:.4f}", ha='center', va='bottom',
+                         color=C_TEXT, fontsize=7.5, fontweight='bold')
+        ax_sego.set_ylabel('RMSE [rad]', color=C_SUBTEXT, fontsize=8)
+        ax_sego.tick_params(axis='x', labelsize=7, labelcolor=C_SUBTEXT)
+        ax_sego.tick_params(axis='y', labelsize=7, labelcolor=C_SUBTEXT)
+
+        # Bias position per axis
+        ax_bias = fig.add_subplot(gs_bot[1, 0])
+        self._panel(ax_bias, "Bias position per axis  [m]", color=C_BLUE)
+        bp = m['bias_pos']
+        ax_bias.bar(['x', 'y', 'z'], bp, color=C_BLUE,
+                    edgecolor=C_GRID, linewidth=0.5, width=0.4, alpha=0.8)
+        ax_bias.axhline(0, color=C_SUBTEXT, lw=0.8)
+        for i, v in enumerate(bp):
+            ax_bias.text(i, v + np.sign(v) * max(abs(bp)) * 0.04,
+                         f"{v:.4f}", ha='center',
+                         va='bottom' if v >= 0 else 'top',
+                         color=C_TEXT, fontsize=8, fontweight='bold')
+        ax_bias.set_ylabel('Bias [m]', color=C_SUBTEXT, fontsize=8)
+        ax_bias.tick_params(labelsize=9, labelcolor=C_SUBTEXT)
+
+        # Bias orientation per axis
+        ax_biao = fig.add_subplot(gs_bot[1, 1])
+        self._panel(ax_biao, "Bias orientation per axis  [rad]", color=C_BLUE)
+        bo = m['bias_ori']
+        ax_biao.bar(['roll', 'pitch', 'yaw'], bo, color=C_BLUE,
+                    edgecolor=C_GRID, linewidth=0.5, width=0.4, alpha=0.8)
+        ax_biao.axhline(0, color=C_SUBTEXT, lw=0.8)
+        for i, v in enumerate(bo):
+            ax_biao.text(i, v + np.sign(v) * max(abs(bo)) * 0.04,
+                         f"{v:.4f}", ha='center',
+                         va='bottom' if v >= 0 else 'top',
+                         color=C_TEXT, fontsize=8, fontweight='bold')
+        ax_biao.set_ylabel('Bias [rad]', color=C_SUBTEXT, fontsize=8)
+        ax_biao.tick_params(labelsize=9, labelcolor=C_SUBTEXT)
+
+        plt.tight_layout()
+        plt.show()
 
 def main(args=None):
     rclpy.init(args=args)

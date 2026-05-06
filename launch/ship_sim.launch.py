@@ -31,7 +31,7 @@ def get_mode_config(mode_str):
             'roll_amplitude': 0.0,
             'pitch_amplitude': 0.0,
             'heave_amplitude': 0.0,
-            'imu_enable': True
+            'imu_enable': False
         }
     elif mode_str == 'navigation_no_comp':
         return {
