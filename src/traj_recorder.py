@@ -28,17 +28,19 @@ class TrajRecorder(Node):
         self.is_started = False 
         self.segment_count = 1 
 
-        pkg_share = get_package_share_directory('ship_gazebo')
-        ws_root = os.path.abspath(os.path.join(pkg_share, '../../../../'))
-        src_config_dir = os.path.join(ws_root, 'src', 'ship_gazebo', 'config')
-        
-        if not os.path.exists(src_config_dir):
-            os.makedirs(src_config_dir)
+        self.declare_parameter('output_file', 'trajectory.yaml')
+        output_file = self.get_parameter('output_file').value
 
-        self.declare_parameter('config_file', 'trajectory.yaml')
-        self.filename = os.path.join(src_config_dir, self.get_parameter('config_file').value)
+        if os.path.isabs(output_file):
+            self.filename = output_file
+        else:
+            pkg_share = get_package_share_directory('ship_gazebo')
+            ws_root = os.path.abspath(os.path.join(pkg_share, '../../../../'))
+            src_config_dir = os.path.join(ws_root, 'src', 'ship_gazebo', 'config')
+            os.makedirs(src_config_dir, exist_ok=True)
+            self.filename = os.path.join(src_config_dir, output_file)
 
-        self.get_logger().info("Wait for moving the robot\n")
+        self.get_logger().info(f"Output file: {self.filename} — waiting for robot motion.")
 
     def is_zero_twist(self,msg):
         return (msg.linear.x == 0.0 and 

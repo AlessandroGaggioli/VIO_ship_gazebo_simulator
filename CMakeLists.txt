@@ -55,6 +55,7 @@ install(PROGRAMS
   src/cmd_vel_pub.py
   src/traj_recorder.py
   src/odom_comparator.py
+  src/rgbd_image_relay.py
   tools/imu_comparator.py
   tools/plot_imu_csv.py
   DESTINATION lib/${PROJECT_NAME}

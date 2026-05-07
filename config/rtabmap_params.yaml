@@ -75,9 +75,6 @@
     SIFT/ContrastThreshold: '0.04'
     SIFT/EdgeThreshold: '10'
 
-    Reg/Force3DoF: 'false'
-    RGBD/ForceOdom3DoF: 'false'
-
 /stereo_odometry:
   ros__parameters:
     use_sim_time: True
@@ -120,4 +117,3 @@
     # GFTT/MinDistance: '3'
     SIFT/ContrastThreshold: '0.04'
     SIFT/EdgeThreshold: '10'
-    Reg/Force3DoF: 'false'  

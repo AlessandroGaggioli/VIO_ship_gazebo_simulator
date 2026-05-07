@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import time
 import rclpy
 import numpy as np
 from rclpy.node import Node
@@ -54,15 +55,13 @@ class OdomComparator(Node):
             'cmd_speed': [],
         }
 
-        self.cmd_speed = 0.0   # latest commanded linear speed [m/s]
+        self.cmd_speed = 0.0
         self.motion_started = False
-        self.last_motion_time = None
+        self._last_gt_pos = None        # gt_pos at previous sync tick, for motion detection
+        self._last_motion_wall_t = None # wall-clock seconds of last sync tick where robot moved
+        self.done = False
         self.sub_cmd_vel = self.create_subscription(
-            Twist,
-            '/cmd_vel',
-            self.cmd_vel_callback,
-            10
-        )
+            Twist, '/cmd_vel', self.cmd_vel_callback, 10)
 
     def _vec(self, msg): return np.array([msg.x, msg.y, msg.z])
     def _quat(self, msg): return np.array([msg.x, msg.y, msg.z, msg.w])
@@ -73,27 +72,15 @@ class OdomComparator(Node):
     #############################################
 
     def cmd_vel_callback(self, msg):
-        is_moving = any(abs(v) > 1e-3 for v in [msg.linear.x, msg.linear.y, msg.linear.z,
-                                                 msg.angular.x, msg.angular.y, msg.angular.z])
         self.cmd_speed = np.sqrt(msg.linear.x**2 + msg.linear.y**2 + msg.linear.z**2)
-
-        if is_moving:
-            if not self.motion_started:
-                self.motion_started = True
-            self.last_motion_time = self.get_clock().now().nanoseconds / 1e9
-        self.currently_moving = is_moving
+        if self.cmd_speed > 1e-3 and not self.motion_started:
+            self.motion_started = True
+            self.get_logger().info("Motion detected — waiting for first synchronized message to start tracking.")
 
     def sync_callback(self, msg_gt_robot, msg_ship_joints, msg_est):
-        if not getattr(self, 'motion_started', False):
+        if not self.motion_started:
             return
-            
-        current_time = self.get_clock().now().nanoseconds / 1e9
-        
-        # Se sono passati più di 5 secondi dall'ultimo movimento, smetti di registrare i dati
-        if self.last_motion_time is not None and (current_time - self.last_motion_time) > 5.0:
-            self._logger.info("Motion stopped for more than 5 seconds. Stopping data recording.")
-            return
-        
+
         curr_t = msg_est.header.stamp.sec + msg_est.header.stamp.nanosec * 1e-9
 
         if self.joint_idx is None:
@@ -114,6 +101,12 @@ class OdomComparator(Node):
         gt_pos = ship_rot_w.inv().apply(pos_robot_w - ship_pos_w)
         gt_rot = ship_rot_w.inv() * rot_robot_w
 
+        # Detect robot motion from ground truth position change (wall time so it
+        # works even when /clock freezes at end of bag).
+        if self._last_gt_pos is not None and np.linalg.norm(gt_pos - self._last_gt_pos) > 5e-4:
+            self._last_motion_wall_t = time.monotonic()
+        self._last_gt_pos = gt_pos
+
         v_ship_w = np.array([0.0, 0.0, h_v]) + np.cross([r_v, pi_v, 0.0], pos_robot_w - ship_pos_w)
         inv_rot  = rot_robot_w.inv()
         gt_v_lin = self._vec(msg_gt_robot.twist.twist.linear)  - inv_rot.apply(v_ship_w)
@@ -126,6 +119,7 @@ class OdomComparator(Node):
             self.start_time   = curr_t
             self.init_gt_pos, self.init_est_pos = gt_pos, est_pos
             self.init_gt_rot, self.init_est_rot = gt_rot, est_rot
+            self.get_logger().info(f"Odometry tracking started at t={curr_t:.2f} s.")
 
         rel_gt_pos  = gt_pos  - self.init_gt_pos
         rel_est_pos = est_pos - self.init_est_pos
@@ -370,12 +364,31 @@ class OdomComparator(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = OdomComparator()
-    try: rclpy.spin(node)
-    except KeyboardInterrupt: pass
+    try:
+        while rclpy.ok() and not node.done:
+            rclpy.spin_once(node, timeout_sec=0.1)
+            # Stop detection uses wall time so it fires even when /clock freezes
+            # (bag finished). _last_motion_wall_t is set from gt_pos displacement
+            # inside sync_callback, so it's independent of cmd_vel publication.
+            if (node.motion_started
+                    and node.start_time is not None
+                    and node._last_motion_wall_t is not None
+                    and (time.monotonic() - node._last_motion_wall_t) > 5.0):
+                n = len(node.history['t'])
+                curr_t = (node.history['t'][-1] + node.start_time) if n else 0.0
+                node.get_logger().info(
+                    f"Odometry tracking ended at t={curr_t:.2f} s "
+                    f"({n} samples) — motion stopped for >5 s.")
+                node.done = True
+    except KeyboardInterrupt:
+        n = len(node.history['t'])
+        t_end = (node.history['t'][-1] + node.start_time) if n else 0.0
+        print(f"[odom_comparator] Odometry tracking ended at t={t_end:.2f} s ({n} samples) — interrupted by user.")
     finally:
         node.plot_results()
         node.destroy_node()
-        if rclpy.ok(): rclpy.shutdown()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

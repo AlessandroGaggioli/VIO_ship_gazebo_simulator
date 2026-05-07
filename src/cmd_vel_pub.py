@@ -54,8 +54,8 @@ class CmdVelTrajectoryExecutor(Node):
         self.declare_parameter('publish_rate', 10.0)
         self.publish_rate = self.get_parameter('publish_rate').value
 
-        self.declare_parameter('config_file', 'trajectory.yaml')
-        self.config_file = self.get_parameter('config_file').value
+        self.declare_parameter('output_file', 'trajectory.yaml')
+        self.config_file = self.get_parameter('output_file').value
 
         # trajectory state
         self.is_executing = False
@@ -82,9 +82,12 @@ class CmdVelTrajectoryExecutor(Node):
 
     def load_traj(self, config_file):
         try:
-            pkg_share = get_package_share_directory('ship_gazebo')
-            ws_root = os.path.abspath(os.path.join(pkg_share, '../../../../'))
-            config_path = os.path.join(ws_root, 'src', 'ship_gazebo', 'config', config_file)
+            if os.path.isabs(config_file):
+                config_path = config_file
+            else:
+                pkg_share = get_package_share_directory('ship_gazebo')
+                ws_root = os.path.abspath(os.path.join(pkg_share, '../../../../'))
+                config_path = os.path.join(ws_root, 'src', 'ship_gazebo', 'config', config_file)
 
             if not os.path.exists(config_path):
                 self.get_logger().error(f"Config file not found: {config_path}")

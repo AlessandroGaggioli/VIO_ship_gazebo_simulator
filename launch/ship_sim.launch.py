@@ -59,7 +59,7 @@ def generate_launch_description():
 
     # Ensure there is a single simulation/clock source.
     # Stale gz/bridge processes from previous runs can cause /clock jumps,
-    # which then break odometry, RTAB-Map and Nav2 behavior.
+    # which then break odometry, RTAB-Map behavior.
     subprocess.run(['pkill', '-f', 'gz sim'], check=False)
     subprocess.run(['pkill', '-f', 'ros_gz_bridge.*parameter_bridge'], check=False)
 
@@ -148,7 +148,6 @@ def generate_launch_description():
     # They need to be set equal to the position of the cameras in the SDF file.
     camera_params_path = os.path.join(pkg_share, 'config', 'stereo_params.yaml') # path to the camera parameters file
 
-
     # Define the ROS 2 nodes to be launched, including 
     #  - static transforms for the cameras and IMU
     #  - image processing nodes for rectifying camera images and generating disparity maps
@@ -202,9 +201,7 @@ def generate_launch_description():
         package='tf2_ros',
         executable='static_transform_publisher',
         name='camera_left_tf',
-        parameters=[{
-            'use_sim_time': True
-        }],
+        parameters=[{'use_sim_time': True}],
         arguments=[
             # '--x', cam_x, '--y', str(cam_y_offset), '--z', cam_z,
             '--x', '0', '--y', '0', '--z', '0',
@@ -218,9 +215,7 @@ def generate_launch_description():
         package='tf2_ros',
         executable='static_transform_publisher',
         name='camera_right_tf',
-        parameters=[{
-            'use_sim_time': True
-        }],
+        parameters=[{'use_sim_time': True}],
         arguments=[
             '--x', '0', '--y', '0', '--z', '0',
             '--roll', '-1.570796', '--pitch', '0', '--yaw', '-1.570796',
@@ -233,9 +228,7 @@ def generate_launch_description():
         package='tf2_ros',
         executable='static_transform_publisher',
         name='imu_tf',
-        parameters=[{
-            'use_sim_time': True
-        }],
+        parameters=[{'use_sim_time': True}],
         arguments=[
             '--x', '-0.032', '--y', '0', '--z', '0.078',  # 0.068 + 0.010
             '--roll', '0', '--pitch', '0', '--yaw', '0',
