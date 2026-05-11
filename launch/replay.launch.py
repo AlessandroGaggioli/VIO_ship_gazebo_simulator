@@ -19,11 +19,10 @@ The robot spawn position for IMU compensation is read automatically from the
 bag's first /robot/ground_truth/odom message, so it always matches the recording.
 
 Example:
-  ros2 launch ship_gazebo replay.launch.py bag:=bag_navigation_20250507_120000 odom_type:=loosely
+  ros2 launch ship_gazebo replay.launch.py bag:=motion_line odom_type:=loosely
 """
 
 import os
-import sys
 import yaml
 
 import rosbag2_py
@@ -31,8 +30,9 @@ from rclpy.serialization import deserialize_message
 from nav_msgs.msg import Odometry
 
 from ament_index_python.packages import get_package_share_directory
-from launch import LaunchDescription
-from launch.actions import ExecuteProcess, DeclareLaunchArgument, TimerAction
+from launch import LaunchDescription, LaunchContext
+from launch.substitutions import LaunchConfiguration
+from launch.actions import ExecuteProcess, DeclareLaunchArgument, TimerAction, OpaqueFunction
 from launch_ros.actions import Node
 
 
@@ -58,22 +58,11 @@ def get_spawn_from_bag(bag_path):
     return 0.0, 0.0, 0.0
 
 
-def generate_launch_description():
-
-    bag_path  = ''
-    odom_type = 'loosely'
-    comp      = True
-    _3dof = False
-
-    for arg in sys.argv:
-        if 'bag:=' in arg:
-            bag_path = arg.split(':=')[1]
-        if 'odom_type:=' in arg:
-            odom_type = arg.split(':=')[1]
-        if 'comp:=' in arg:
-            comp = arg.split(':=')[1].lower() not in ('false', '0', 'no')
-        if '3dof:=' in arg:
-            _3dof = arg.split(':=')[1].lower() not in ('false', '0', 'no')
+def launch_setup(context, *args, **kwargs):
+    bag_path = LaunchConfiguration('bag').perform(context)
+    odom_type = LaunchConfiguration('odom_type').perform(context)
+    comp = LaunchConfiguration('comp').perform(context).lower() not in ('false', '0', 'no')
+    _3dof = LaunchConfiguration('3dof').perform(context).lower() not in ('false', '0', 'no')
 
     if not bag_path:
         raise ValueError(
@@ -283,15 +272,6 @@ def generate_launch_description():
     SLAM_STARTUP = ODOM_STARTUP + 2.0
 
     nodes_list = [
-        DeclareLaunchArgument('bag',       default_value='',
-                              description='Path to the rosbag directory to replay'),
-        DeclareLaunchArgument('odom_type', default_value='loosely',
-                              description='Odometry type: loosely | ekf'),
-        DeclareLaunchArgument('comp',      default_value='true',
-                              description='Enable IMU compensation: true | false'),
-        DeclareLaunchArgument('3dof',   default_value='false',
-                              description='Enable 3DOF mode (planar movement only): true | false'),
-
         bag_play,
         rviz2,
         TimerAction(period=TF_STARTUP, actions=[
@@ -306,4 +286,18 @@ def generate_launch_description():
     if odom_type == 'ekf':
         nodes_list.append(TimerAction(period=ODOM_STARTUP - 1.0, actions=[ekf_odom_node]))
 
-    return LaunchDescription(nodes_list)
+    return nodes_list
+
+def generate_launch_description():
+    return LaunchDescription([
+        DeclareLaunchArgument('bag',       default_value='',
+                              description='Path to the rosbag directory to replay'),
+        DeclareLaunchArgument('odom_type', default_value='loosely',
+                              description='Odometry type: loosely | ekf'),
+        DeclareLaunchArgument('comp',      default_value='true',
+                              description='Enable IMU compensation: true | false'),
+        DeclareLaunchArgument('3dof',   default_value='false',
+                              description='Enable 3DOF mode (planar movement only): true | false'),
+        
+        OpaqueFunction(function=launch_setup)
+    ])

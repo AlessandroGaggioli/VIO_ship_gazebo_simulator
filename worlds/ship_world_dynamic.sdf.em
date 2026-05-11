@@ -118,24 +118,24 @@ for m in _objects.get('models', []):
 #==========================================================
 
 if 'roll_amplitude' not in locals():
-    roll_amplitude  = 0.3   # rad
+    roll_amplitude  = 0.174533   # rad
 if 'pitch_amplitude' not in locals():
-    pitch_amplitude = 0.2   # rad
+    pitch_amplitude = 0.034906   # rad
 if 'heave_amplitude' not in locals():
-    heave_amplitude = 0.1   # rad
+    heave_amplitude = 0.5   # rad
 
 roll_frequency  = 0.1   # Hz
 roll_phase      = 0.0   # rad
 
-pitch_frequency = 0.1
-pitch_phase     = 0.0
+pitch_frequency = 0.05  # Hz
+pitch_phase     = 0.0 #rad
 
-heave_frequency = 0.1
-heave_phase     = 0.0
+heave_frequency = 0.05 # Hz
+heave_phase     = 0.0 # rad
 
-roll_bound  = 0.31   # rad
-pitch_bound = 0.21   # rad
-heave_bound = 0.11   # m
+roll_bound  = 0.2   # rad
+pitch_bound = 0.05   # rad
+heave_bound = 0.6    # m
 
 revolute_damping  = 100.0
 revolute_friction = 10.0

@@ -18,34 +18,33 @@ Args:
 """
 
 import os
-import sys
 import subprocess
 from datetime import datetime
 import xml.etree.ElementTree as ET
 
 from ament_index_python.packages import get_package_share_directory, get_package_prefix
-from launch import LaunchDescription
-from launch.actions import ExecuteProcess, AppendEnvironmentVariable, DeclareLaunchArgument, TimerAction
+from launch import LaunchDescription, LaunchContext
+from launch.substitutions import LaunchConfiguration
+from launch.actions import ExecuteProcess, AppendEnvironmentVariable, DeclareLaunchArgument, TimerAction, OpaqueFunction
 from launch_ros.actions import Node
 
 
-def generate_launch_description():
-
-    motion   = True
-    bag_name = None
-
+def launch_setup(context, *args, **kwargs):
     subprocess.run(['pkill', '-f', 'gz sim'], check=False)
     subprocess.run(['pkill', '-f', 'ros_gz_bridge.*parameter_bridge'], check=False)
 
-    for arg in sys.argv:
-        if 'motion:=' in arg:
-            motion = arg.split(':=')[1].lower() not in ('false', '0', 'no')
-        if 'bag:=' in arg:
-            bag_name = arg.split(':=')[1]
+    motion_str = LaunchConfiguration('motion').perform(context)
+    motion = True
+    if motion_str:
+        motion = motion_str.lower() not in ('false', '0', 'no')
+    
+    bag_name = LaunchConfiguration('bag').perform(context)
+    if not bag_name:
+        bag_name = None
 
-    roll_amplitude  = 0.2 if motion else 0.0
-    pitch_amplitude = 0.1 if motion else 0.0
-    heave_amplitude = 0.1 if motion else 0.0
+    roll_amplitude  = 0.174533 if motion else 0.0
+    pitch_amplitude = 0.034906 if motion else 0.0
+    heave_amplitude = 0.5 if motion else 0.0
     mode_label      = 'motion' if motion else 'no_motion'
 
     BAGS_DIR = os.path.join(os.path.expanduser('~/ship_ws'), 'bags')
@@ -234,12 +233,7 @@ def generate_launch_description():
         output='screen'
     )
 
-    return LaunchDescription([
-        DeclareLaunchArgument('motion', default_value='true',
-                              description='Enable ship roll/pitch/heave motion: true | false'),
-        DeclareLaunchArgument('bag',    default_value='',
-                              description='Output bag name (default: bag_motion_<timestamp>)'),
-
+    return [
         AppendEnvironmentVariable('GZ_SIM_SYSTEM_PLUGIN_PATH', plugin_path),
         AppendEnvironmentVariable('GZ_SIM_RESOURCE_PATH', os.path.join(pkg_share, 'models')),
         AppendEnvironmentVariable('GZ_SIM_RESOURCE_PATH', '/opt/ros/jazzy/share/turtlebot3_gazebo/models'),
@@ -257,5 +251,14 @@ def generate_launch_description():
             left_camera_rect, right_camera_rect,
         ]),
         TimerAction(period=SYNC_STARTUP, actions=[stereo_sync_node]),
-        TimerAction(period=BAG_STARTUP,  actions=[bag_record]),
+        TimerAction(period=BAG_STARTUP,  actions=[bag_record])
+    ]
+
+def generate_launch_description():
+    return LaunchDescription([
+        DeclareLaunchArgument('motion', default_value='true',
+                              description='Enable ship roll/pitch/heave motion: true | false'),
+        DeclareLaunchArgument('bag',    default_value='',
+                              description='Output bag name (default: bag_motion_<timestamp>)'),
+        OpaqueFunction(function=launch_setup)
     ])

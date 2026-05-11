@@ -18,8 +18,9 @@ import sys
 import subprocess
 
 from ament_index_python.packages import get_package_share_directory, get_package_prefix
-from launch import LaunchDescription
-from launch.actions import ExecuteProcess, AppendEnvironmentVariable, LogInfo, DeclareLaunchArgument, TimerAction, RegisterEventHandler
+from launch import LaunchDescription, LaunchContext
+from launch.actions import ExecuteProcess, AppendEnvironmentVariable, LogInfo, DeclareLaunchArgument, TimerAction, RegisterEventHandler, OpaqueFunction
+from launch.substitutions import LaunchConfiguration
 from launch.event_handlers import OnProcessStart
 from launch_ros.actions import Node
 import xml.etree.ElementTree as ET
@@ -44,33 +45,30 @@ def get_mode_config(mode_str):
         return {
             'roll_amplitude': 0.2,
             'pitch_amplitude': 0.1,
-            'heave_amplitude': 0.1,
+            'heave_amplitude': 1.5,
             'imu_enable': True
         }
     else:
         raise ValueError(f"Unknown mode: {mode_str}")
 
 # Main function to generate the launch description
-def generate_launch_description():
-
-    mode_str = 'navigation'
-    debug_camera = False
-    odom_type = 'loosely'
-
+def launch_setup(context, *args, **kwargs):
     # Ensure there is a single simulation/clock source.
     # Stale gz/bridge processes from previous runs can cause /clock jumps,
     # which then break odometry, RTAB-Map behavior.
     subprocess.run(['pkill', '-f', 'gz sim'], check=False)
     subprocess.run(['pkill', '-f', 'ros_gz_bridge.*parameter_bridge'], check=False)
 
-    # Parse command line arguments to get the mode settings
-    for arg in sys.argv:
-        if 'mode:=' in arg:
-            mode_str = arg.split(':=')[1]  # get the value after ':=' and set it to mode_str
-        if 'debug_camera:=' in arg:
-            debug_camera = arg.split(':=')[1].lower() == 'true' # convert to boolean and set to debug_camera
-        if 'odom_type:=' in arg:
-            odom_type = arg.split(':=')[1] # set the odometry type based on the argument
+    mode_str = LaunchConfiguration('mode').perform(context)
+    if not mode_str:
+        mode_str = 'navigation'
+        
+    debug_camera_str = LaunchConfiguration('debug_camera').perform(context)
+    debug_camera = debug_camera_str.lower() == 'true' if debug_camera_str else False
+
+    odom_type = LaunchConfiguration('odom_type').perform(context)
+    if not odom_type:
+        odom_type = 'loosely'
     
     config = get_mode_config(mode_str) # get the configuration parameters based on the selected mode
 
@@ -563,4 +561,16 @@ def generate_launch_description():
     # Launch Description
     #=============================
 
-    return LaunchDescription(nodes_list)
+    return nodes_list
+
+def generate_launch_description():
+    return LaunchDescription([
+        DeclareLaunchArgument('mode', default_value='navigation',
+                              description='Simulation mode: no_motion | navigation_no_comp | navigation'),
+        DeclareLaunchArgument('debug_camera', default_value='false',
+                              description='Enable camera debugging nodes: true | false'),
+        DeclareLaunchArgument('odom_type', default_value='loosely',
+                              description='Odometry type to use: loosely | ekf'),
+
+        OpaqueFunction(function=launch_setup)
+    ])
