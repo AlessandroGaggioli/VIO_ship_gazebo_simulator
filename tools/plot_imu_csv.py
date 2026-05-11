@@ -92,7 +92,7 @@ def load_csv(csv_path: Path):
     return rel_time, acc_data, omega_data
 
 
-def plot_data(time_data, acc_data, omega_data, output_path: Path | None = None):
+def plot_data(time_data, acc_data, omega_data):
     axis_names = ["X", "Y", "Z"]
 
     # Grid layout: first row acceleration, second row angular velocity.
@@ -115,7 +115,6 @@ def plot_data(time_data, acc_data, omega_data, output_path: Path | None = None):
         ax.set_xlabel("time (s)")
         ax.set_ylabel("m/s^2")
         ax.grid(True, linestyle="--", alpha=0.6)
-        ax.legend()
 
     # Plot angular velocity for X/Y/Z.
     for axis_idx, axis_name in enumerate(axis_names):
@@ -133,19 +132,18 @@ def plot_data(time_data, acc_data, omega_data, output_path: Path | None = None):
         ax.set_xlabel("time (s)")
         ax.set_ylabel("rad/s")
         ax.grid(True, linestyle="--", alpha=0.6)
-        ax.legend()
 
     plt.tight_layout()
-
-    # Optional image export in addition to interactive display.
-    if output_path:
-        fig.savefig(output_path, dpi=150, bbox_inches="tight")
-
+    
+    # Add global legend below the plots
+    handles, labels = axs[0, 0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -0.02), ncol=3, fontsize=11)
+    
     plt.show()
 
 
 def parse_args():
-    # CLI supports an optional CSV path and optional output image path.
+    # CLI supports an optional CSV path.
     parser = argparse.ArgumentParser(
         description="Read IMU comparison CSV and generate plots."
     )
@@ -154,11 +152,6 @@ def parse_args():
         nargs="?",
         default="data/imu_comparison.csv",
         help="Path to CSV file (default: data/imu_comparison.csv)",
-    )
-    parser.add_argument(
-        "--save",
-        default=None,
-        help="Optional output image path, e.g. imu_plot.png",
     )
     return parser.parse_args()
 
@@ -181,8 +174,7 @@ def main():
             )
         sys.exit(1)
 
-    save_path = Path(args.save) if args.save else None
-    plot_data(time_data, acc_data, omega_data, save_path)
+    plot_data(time_data, acc_data, omega_data)
 
 
 if __name__ == "__main__":

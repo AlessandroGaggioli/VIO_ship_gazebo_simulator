@@ -43,9 +43,9 @@ def get_mode_config(mode_str):
         }
     elif mode_str == 'navigation':
         return {
-            'roll_amplitude': 0.2,
-            'pitch_amplitude': 0.1,
-            'heave_amplitude': 1.5,
+            'roll_amplitude': 0.174533,
+            'pitch_amplitude': 0.034906,
+            'heave_amplitude': 0.5,
             'imu_enable': True
         }
     else:

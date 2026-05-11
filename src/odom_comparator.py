@@ -3,6 +3,8 @@
 import time
 import rclpy
 import numpy as np
+import csv
+from pathlib import Path
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import JointState
@@ -35,6 +37,8 @@ class OdomComparator(Node):
         self.declare_parameter('est_topic', '')
         self.declare_parameter('sync_slop', 0.05)
         self.declare_parameter('n_segments', 5)
+        self.declare_parameter('csv_output_path', '')
+        self.declare_parameter('pdf_output_path', '')
 
         self.sub_gt_robot    = message_filters.Subscriber(self, Odometry,  self.get_parameter('gt_robot_topic').value,   qos_profile=qos_profile_sensor_data)
         self.sub_ship_joints = message_filters.Subscriber(self, JointState, self.get_parameter('ship_joints_topic').value, qos_profile=qos_profile_sensor_data)
@@ -359,7 +363,92 @@ class OdomComparator(Node):
         ax_biao.tick_params(labelsize=9, labelcolor=C_SUBTEXT)
 
         plt.tight_layout()
-        plt.show()
+        
+        # Save PDF if path is specified, otherwise show plot
+        pdf_path = self.get_parameter('pdf_output_path').value
+        if pdf_path:
+            try:
+                output_file = Path(pdf_path)
+                output_file.parent.mkdir(parents=True, exist_ok=True)
+                fig.savefig(output_file, format='pdf', dpi=150, bbox_inches='tight')
+                self.get_logger().info(f"Odometry report saved to {output_file}.")
+            except Exception as e:
+                self.get_logger().error(f"Failed to save PDF: {e}")
+        else:
+            plt.show()
+
+    def save_to_csv(self):
+        """Save odometry tracking history to CSV file."""
+        csv_path = self.get_parameter('csv_output_path').value
+        
+        if not csv_path:
+            self.get_logger().info("csv_output_path not specified, skipping CSV export.")
+            return
+        
+        if not self.history['t']:
+            self.get_logger().warn("No data to save to CSV.")
+            return
+        
+        try:
+            # Ensure directory exists
+            output_file = Path(csv_path)
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            # Prepare data for CSV
+            h = {k: np.array(v) for k, v in self.history.items()}
+            n_samples = len(h['t'])
+            
+            # Flatten position/orientation/velocity arrays for CSV
+            fieldnames = ['time']
+            
+            # Ground truth position
+            fieldnames.extend(['gt_pos_x', 'gt_pos_y', 'gt_pos_z'])
+            # Estimated position
+            fieldnames.extend(['est_pos_x', 'est_pos_y', 'est_pos_z'])
+            # Position error
+            fieldnames.extend(['err_pos_x', 'err_pos_y', 'err_pos_z'])
+            # Orientation error (Euler)
+            fieldnames.extend(['err_ori_x', 'err_ori_y', 'err_ori_z'])
+            # Linear velocity error
+            fieldnames.extend(['err_lin_x', 'err_lin_y', 'err_lin_z'])
+            # Angular velocity error
+            fieldnames.extend(['err_ang_x', 'err_ang_y', 'err_ang_z'])
+            # Command speed
+            fieldnames.append('cmd_speed')
+            
+            with open(output_file, 'w', newline='') as csvfile:
+                writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                writer.writeheader()
+                
+                for i in range(n_samples):
+                    row = {
+                        'time': f"{h['t'][i]:.6f}",
+                        'gt_pos_x': f"{h['gt'][i, 0]:.6f}",
+                        'gt_pos_y': f"{h['gt'][i, 1]:.6f}",
+                        'gt_pos_z': f"{h['gt'][i, 2]:.6f}",
+                        'est_pos_x': f"{h['est'][i, 0]:.6f}",
+                        'est_pos_y': f"{h['est'][i, 1]:.6f}",
+                        'est_pos_z': f"{h['est'][i, 2]:.6f}",
+                        'err_pos_x': f"{h['e_pos'][i, 0]:.6f}",
+                        'err_pos_y': f"{h['e_pos'][i, 1]:.6f}",
+                        'err_pos_z': f"{h['e_pos'][i, 2]:.6f}",
+                        'err_ori_x': f"{h['e_ori'][i, 0]:.6f}",
+                        'err_ori_y': f"{h['e_ori'][i, 1]:.6f}",
+                        'err_ori_z': f"{h['e_ori'][i, 2]:.6f}",
+                        'err_lin_x': f"{h['e_lin'][i, 0]:.6f}",
+                        'err_lin_y': f"{h['e_lin'][i, 1]:.6f}",
+                        'err_lin_z': f"{h['e_lin'][i, 2]:.6f}",
+                        'err_ang_x': f"{h['e_ang'][i, 0]:.6f}",
+                        'err_ang_y': f"{h['e_ang'][i, 1]:.6f}",
+                        'err_ang_z': f"{h['e_ang'][i, 2]:.6f}",
+                        'cmd_speed': f"{h['cmd_speed'][i]:.6f}",
+                    }
+                    writer.writerow(row)
+            
+            self.get_logger().info(f"Odometry data saved to {output_file} ({n_samples} samples).")
+        except Exception as e:
+            self.get_logger().error(f"Failed to save CSV: {e}")
+
 
 def main(args=None):
     rclpy.init(args=args)
@@ -385,6 +474,7 @@ def main(args=None):
         t_end = (node.history['t'][-1] + node.start_time) if n else 0.0
         print(f"[odom_comparator] Odometry tracking ended at t={t_end:.2f} s ({n} samples) — interrupted by user.")
     finally:
+        node.save_to_csv()
         node.plot_results()
         node.destroy_node()
         if rclpy.ok():

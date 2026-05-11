@@ -85,4 +85,200 @@ colcon build --symlink-install ship_gazebo
 source install/setup.bash
 ```
 
+---
+
+## Core ROS2 Nodes
+
+### Recording & Analysis Nodes
+
+#### `odom_comparator.py`
+Compares ground truth odometry vs estimated odometry during rosbag replay. Generates comprehensive PDF reports and CSV exports with:
+- Position and orientation errors
+- Linear and angular velocity errors
+- Absolute Trajectory Error (ATE) metrics
+- Segmented analysis by motion segments
+
+**Parameters:**
+- `gt_robot_topic`: Ground truth odometry topic (default: `/robot/ground_truth/odom`)
+- `est_topic`: Estimated odometry topic (default: `stereo_odom`)
+- `csv_output_path`: Path to save CSV data (empty = no save)
+- `pdf_output_path`: Path to save PDF report (empty = no save)
+- `use_sim_time`: Use simulation time (default: true)
+
+#### `imu_comparator.py`
+Compares raw IMU data vs compensated IMU data vs ship IMU. Skips the first 10 seconds of data to exclude initialization phase. Generates plots and CSV exports with synchronized IMU measurements.
+
+**Parameters:**
+- `csv_output_path`: Path to save CSV data (empty = no save)
+- `pdf_output_path`: Path to save PDF report (empty = no save)
+- `use_sim_time`: Use simulation time (default: true)
+
+**Features:**
+- Approximate time synchronization (±20ms tolerance)
+- Quaternion to Euler angle conversion
+- 10-second skip for stable initial conditions
+
+#### `cmd_vel_pub.py`
+Publishes pre-recorded velocity commands from a YAML trajectory file.
+
+**Parameters:**
+- `output_file`: Path to trajectory YAML file
+- `use_sim_time`: Use simulation time (default: false)
+
+#### `traj_recorder.py`
+Records velocity commands from teleop into a YAML trajectory file for later replay.
+
+**Parameters:**
+- `output_file`: Path to save trajectory YAML
+- `use_sim_time`: Use simulation time (default: false)
+
+#### `imu_compensator.py`
+Compensates raw IMU measurements for ship motion effects using accelerometer and gyroscope data.
+
+---
+
+## Launch Files
+
+### `analyze_sim.launch.py`
+Master launch file for analyzing rosbag recordings. Coordiantes `odom_comparator` and `imu_comparator` nodes with configurable output paths.
+
+**Usage:**
+```bash
+ros2 launch ship_gazebo analyze_sim.launch.py \
+    save_path:=<path> \
+    filename:=<name> \
+    save_odom:=<true/false> \
+    save_imu:=<true/false> \
+    est_topic:=<topic>
+```
+
+**Parameters:**
+- `save_path`: Output directory (default: current directory)
+- `filename`: Base filename for all outputs (default: `report`)
+- `save_odom`: Save odometry CSV/PDF (default: false)
+- `save_imu`: Save IMU CSV/PDF (default: false)
+- `est_topic`: Estimated odometry topic (default: `stereo_odom`)
+
+### `replay.launch.py`
+Launches rosbag replay with configurable odometry type and compensation settings.
+
+**Usage:**
+```bash
+ros2 launch ship_gazebo replay.launch \
+    bag:=<bag_path> \
+    odom_type:=<loosely/ekf> \
+    comp:=<true/false> \
+    3dof:=<true/false>
+```
+
+**Parameters:**
+- `bag`: Path to rosbag file
+- `odom_type`: Odometry fusion method (default: `loosely`)
+- `comp`: Enable IMU compensation (default: true)
+- `3dof`: Use 3-DOF mode instead of 6-DOF (default: false)
+
+### `record.launch.py`
+Launches recording pipeline for capturing rosbag data with optional motion.
+
+---
+
+## Plotting Tools
+
+### `plot_odom_csv.py`
+Offline plotting tool for odometry CSV files. Generates 6 subplots showing position/orientation errors and velocity errors.
+
+**Usage:**
+```bash
+python3 plot_odom_csv.py <csv_file>
+```
+
+### `plot_imu_csv.py`
+Offline plotting tool for IMU CSV files. Generates 6 subplots (2 rows × 3 columns) showing linear acceleration and angular velocity for each axis.
+
+**Usage:**
+```bash
+python3 plot_imu_csv.py <csv_file>
+```
+
+---
+
+## Complete Workflow
+
+### Recording Phase
+
+**Terminal 1: Start simulation with recording**
+```bash
+ros2 launch ship_gazebo record.launch motion:=true bag:=bag_name
+```
+
+**Terminal 2: Send velocity commands (choose one method)**
+
+Option A - Use pre-recorded trajectory:
+```bash
+ros2 run ship_gazebo cmd_vel_pub.py --ros-args \
+    -p output_file:=traj.yaml \
+    -p use_sim_time:=true
+```
+
+Option B - Use teleop keyboard:
+```bash
+ros2 run teleop_twist_keyboard teleop_twist_keyboard --ros-args -p use_sim_time:=true
+```
+
+Option C - Record teleop trajectory for later replay:
+```bash
+ros2 run ship_gazebo traj_recorder --ros-args \
+    -p output_file:=traj.yaml \
+    -p use_sim_time:=true
+```
+
+### Analysis Phase
+
+**Terminal 1: Launch analysis nodes**
+```bash
+ros2 launch ship_gazebo analyze_sim.launch.py \
+    save_path:=/home/alienware/Gaggioli/SimulationResults/motion_line/comp_on_2d_off \
+    filename:=filename \
+    save_odom:=true \
+    save_imu:=true
+```
+
+**Terminal 2: Replay rosbag**
+```bash
+ros2 launch ship_gazebo replay.launch \
+    bag:=bag_name \
+    odom_type:=loosely \
+    comp:=true \
+    3dof:=false
+```
+
+**Output Files Generated:**
+- `filename_odom.csv` - Odometry comparison data
+- `filename_odom.pdf` - Odometry analysis report
+- `filename_imu.csv` - IMU comparison data
+- `filename_imu.pdf` - IMU analysis report
+
+### Post-Analysis Visualization
+
+**Plot saved odometry data:**
+```bash
+python3 ~/ship_ws/src/ship_gazebo/tools/plot_odom_csv.py \
+    /path/filename_odom.csv
+```
+
+**Plot saved IMU data:**
+```bash
+python3 ~/ship_ws/src/ship_gazebo/tools/plot_imu_csv.py \
+    /path/filename_imu.csv
+```
+
+---
+
+## Notes
+
+- Set `save_odom:=false` or `save_imu:=false` to skip saving CSV/PDF files and only print results to terminal
+- Always use `use_sim_time:=true` when running nodes with simulated data
+- The first 10 seconds of IMU data are skipped to allow system stabilization
+- Odometry analysis automatically starts when motion is detected and stops after 5 seconds of no motion
+
 
