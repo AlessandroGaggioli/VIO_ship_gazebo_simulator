@@ -11,17 +11,22 @@ Parameters:
     - filename: Base filename for output files (e.g., 'report')
     - save_odom: Save odometry results (true/false, default: true)
     - save_imu: Save IMU results (true/false, default: false)
+    - save_map: Save SLAM map + compute map metrics (true/false, default: false)
 
 Generated files:
     - If save_odom=true: {filename}_odom.pdf, {filename}_odom.csv
     - If save_imu=true: {filename}_imu.pdf, {filename}_imu.csv
+    - If save_map=true: ~/ship_ws/maps/{filename}.pgm, {filename}.yaml,
+                       {filename}_cropped.pgm, and a row appended to
+                       {save_path}/map_metrics.csv
 
 Usage:
     ros2 launch ship_gazebo analyze_sim.launch.py \\
         save_path:=/home/user/results \\
         filename:=report \\
         save_odom:=true \\
-        save_imu:=true
+        save_imu:=true \\
+        save_map:=true
 """
 
 import os
@@ -42,10 +47,12 @@ def _build_nodes_and_processes(context, *args, **kwargs):
     filename = context.launch_configurations.get('filename', 'report')
     save_odom_str = context.launch_configurations.get('save_odom', 'true').lower()
     save_imu_str = context.launch_configurations.get('save_imu', 'false').lower()
+    save_map_str = context.launch_configurations.get('save_map', 'false').lower()
     est_topic = context.launch_configurations.get('est_topic', 'stereo_odom')
-    
+
     save_odom = save_odom_str in ['true', 'True', '1', 'yes']
     save_imu = save_imu_str in ['true', 'True', '1', 'yes']
+    save_map = save_map_str in ['true', 'True', '1', 'yes']
 
     # Build full paths with generated filenames
     odom_pdf_path = os.path.join(save_path, f'{filename}_odom.pdf') if save_odom else ''
@@ -87,6 +94,22 @@ def _build_nodes_and_processes(context, *args, **kwargs):
         ]
     )
     entities.append(imu_comparator_node)
+
+    # Map Analyzer Node (only launch if save_map is true)
+    if save_map:
+        map_analyzer_node = Node(
+            package='ship_gazebo',
+            executable='map_analyzer.py',
+            name='map_analyzer',
+            output='screen',
+            parameters=[
+                {'map_name': filename},
+                {'maps_dir': os.path.expanduser('~/ship_ws/maps')},
+                {'save_path': save_path},
+                {'use_sim_time': True},
+            ]
+        )
+        entities.append(map_analyzer_node)
 
     rqt_image_viewer_node = Node(
         package='rqt_image_view',
@@ -131,7 +154,13 @@ def generate_launch_description():
         default_value='false',
         description='Save IMU results (true/false)'
     )
-    
+
+    save_map_arg = DeclareLaunchArgument(
+        'save_map',
+        default_value='false',
+        description='Save SLAM map and compute map metrics (true/false)'
+    )
+
     est_topic_arg = DeclareLaunchArgument(
         'est_topic',
         default_value='stereo_odom',
@@ -144,6 +173,7 @@ def generate_launch_description():
         filename_arg,
         save_odom_arg,
         save_imu_arg,
+        save_map_arg,
         est_topic_arg,
     ])
 
@@ -169,10 +199,15 @@ def generate_launch_description():
             "Save IMU results: ",
             LaunchConfiguration('save_imu'),
             "\n",
+            "Save map results: ",
+            LaunchConfiguration('save_map'),
+            "\n",
             "============================================================\n",
             "Output files will be generated as:\n",
             "  - Odometry: {filename}_odom.pdf, {filename}_odom.csv\n",
             "  - IMU: {filename}_imu.pdf, {filename}_imu.csv\n",
+            "  - Map: ~/ship_ws/maps/{filename}.pgm + .yaml,\n",
+            "         row appended to {save_path}/map_metrics.csv\n",
             "============================================================\n",
             "Now please launch the rosbag replay in another terminal:\n",
             "ros2 launch ship_gazebo replay.launch bag:=<bag_name>\n"

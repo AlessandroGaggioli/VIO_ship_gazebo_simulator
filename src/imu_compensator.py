@@ -78,19 +78,19 @@ class RobotState:
 
 class EMAFilter3D: 
     def __init__(self, cutoff_freq):
-        # Calcola la costante di tempo (tau) basata sulla frequenza di taglio
+        # Calculate the time constant (tau) based on the cutoff frequency
         self.tau = 1.0 / (2.0 * np.pi * cutoff_freq)
         self.state = np.zeros(3)
         self.initialized = False
 
     def filter(self, x, dt):
-        # Se è il primo valore o il dt è non valido, inizializza lo stato
+        # If it is the first value or dt is invalid, initialize the state
         if not self.initialized or dt <= 0:
             self.state = np.copy(x)
             self.initialized = True
             return self.state
         
-        # Calcola il fattore di smoothing (alpha) dinamico basato sul dt reale
+        # Calculate the dynamic smoothing factor (alpha) based on the actual dt
         alpha = 1.0 - np.exp(-dt / self.tau)
         self.state = alpha * x + (1.0 - alpha) * self.state
         return np.copy(self.state)
@@ -114,7 +114,7 @@ class ImuCompensator(Node):
         super().__init__('imu_compensator')
         self.declare_parameter('enable',True)
 
-        # Parametri per la posizione di partenza (passati dal launch file)
+        # Parameters for the starting position (passed from the launch file)
         self.declare_parameter('spawn_x', 0.0)
         self.declare_parameter('spawn_y', 0.0)
         self.declare_parameter('spawn_z', 0.0)
@@ -127,17 +127,17 @@ class ImuCompensator(Node):
         self.ship = ShipState()
         self.robot = RobotState()
 
-        # Inizializziamo la posizione con l'offset per evitare salti a (0,0,0)
+        # Initialize the position with the offset to avoid jumps to (0,0,0)
         self.robot.pose_rel_ship.position.x = self.offset_x
         self.robot.pose_rel_ship.position.y = self.offset_y
         self.robot.pose_rel_ship.position.z = self.offset_z
 
         #Subscribers 
-        # Subscribers sincronizzati per le IMU
+        # Synchronized subscribers for the IMUs
         self.sub_ship_imu = message_filters.Subscriber(self, Imu, '/ship/imu/raw', qos_profile=qos_profile_sensor_data)
         self.sub_robot_imu = message_filters.Subscriber(self, Imu, '/robot/imu/raw', qos_profile=qos_profile_sensor_data)
 
-        # Sincronizzatore: elabora i dati solo quando arrivano due messaggi vicini nel tempo (tolleranza 0.05s)
+        # Synchronizer: process data only when two messages arrive close in time (tolerance 0.05s)
         self.ts = message_filters.ApproximateTimeSynchronizer(
             [self.sub_ship_imu, self.sub_robot_imu],
             queue_size=50,
@@ -145,7 +145,7 @@ class ImuCompensator(Node):
         )
         self.ts.registerCallback(self.sync_imu_cb)
 
-        # L'odometria può rimanere asincrona, serve solo ad aggiornare il vettore posizione
+        # The odometry can remain asynchronous, it only serves to update the position vector
         self.sub_robot_odom = self.create_subscription(Odometry, '/robot/odom', self.robot_odom_cb, qos_profile_sensor_data)
         
         #Publisher
@@ -154,7 +154,7 @@ class ImuCompensator(Node):
         #gravity 
         self.g_vec=np.array([0.0,0.0,9.81])
 
-        # Filtri dinamici (EMA time-aware)
+        # Dynamic filters (EMA time-aware)
         self.omega_filter = EMAFilter3D(cutoff_freq=2.0)
         self.acc_filter = EMAFilter3D(cutoff_freq=2.0) 
 

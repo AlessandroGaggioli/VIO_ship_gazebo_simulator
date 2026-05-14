@@ -8,7 +8,8 @@ A comprehensive ROS 2 + Gazebo simulator for visual-inertial odometry (VIO) test
 
 ### What is this system?
 
-The VIO Ship Gazebo Simulator recreates a **TurtleBot3 Waffle robot navigating inside a ship corridor during active sea motion**. The vessel undergoes realistic sinusoidal roll, pitch, and heave oscillations, and the simulator captures:
+The VIO Ship Gazebo Simulator recreates a **TurtleBot3 Waffle robot navigating inside a ship corridor during active sea motion**. 
+The vessel undergoes realistic sinusoidal roll, pitch, and heave oscillations, and the simulator captures:
 
 - **Stereo camera streams** (left/right rectified images) → pre-synchronized RGBD output
 - **IMU data** (raw 6-DoF accelerometer + gyroscope) → motion-compensated for ship effects
@@ -92,7 +93,8 @@ source install/setup.bash
 ### Recording & Analysis Nodes
 
 #### `odom_comparator.py`
-Compares ground truth odometry vs estimated odometry during rosbag replay. Generates comprehensive PDF reports and CSV exports with:
+Compares ground truth odometry vs estimated odometry during rosbag replay. 
+Generates comprehensive PDF reports and CSV exports with:
 - Position and orientation errors
 - Linear and angular velocity errors
 - Absolute Trajectory Error (ATE) metrics
@@ -106,7 +108,9 @@ Compares ground truth odometry vs estimated odometry during rosbag replay. Gener
 - `use_sim_time`: Use simulation time (default: true)
 
 #### `imu_comparator.py`
-Compares raw IMU data vs compensated IMU data vs ship IMU. Skips the first 10 seconds of data to exclude initialization phase. Generates plots and CSV exports with synchronized IMU measurements.
+Compares raw IMU data vs compensated IMU data vs ship IMU. 
+Skips the first 10 seconds of data to exclude initialization phase. 
+Generates plots and CSV exports with synchronized IMU measurements.
 
 **Parameters:**
 - `csv_output_path`: Path to save CSV data (empty = no save)
@@ -140,7 +144,8 @@ Compensates raw IMU measurements for ship motion effects using accelerometer and
 ## Launch Files
 
 ### `analyze_sim.launch.py`
-Master launch file for analyzing rosbag recordings. Coordiantes `odom_comparator` and `imu_comparator` nodes with configurable output paths.
+Master launch file for analyzing rosbag recordings. 
+Coordiantes `odom_comparator` and `imu_comparator` nodes with configurable output paths.
 
 **Usage:**
 ```bash
@@ -185,7 +190,8 @@ Launches recording pipeline for capturing rosbag data with optional motion.
 ## Plotting Tools
 
 ### `plot_odom_csv.py`
-Offline plotting tool for odometry CSV files. Generates 6 subplots showing position/orientation errors and velocity errors.
+Offline plotting tool for odometry CSV files. 
+Generates 6 subplots showing position/orientation errors and velocity errors.
 
 **Usage:**
 ```bash
@@ -193,7 +199,8 @@ python3 plot_odom_csv.py <csv_file>
 ```
 
 ### `plot_imu_csv.py`
-Offline plotting tool for IMU CSV files. Generates 6 subplots (2 rows × 3 columns) showing linear acceleration and angular velocity for each axis.
+Offline plotting tool for IMU CSV files. 
+Generates 6 subplots (2 rows × 3 columns) showing linear acceleration and angular velocity for each axis.
 
 **Usage:**
 ```bash
@@ -240,7 +247,8 @@ ros2 launch ship_gazebo analyze_sim.launch.py \
     save_path:=/home/alienware/Gaggioli/SimulationResults/motion_line/comp_on_2d_off \
     filename:=filename \
     save_odom:=true \
-    save_imu:=true
+    save_imu:=true \
+    save_map:=true
 ```
 
 **Terminal 2: Replay rosbag**
@@ -257,6 +265,8 @@ ros2 launch ship_gazebo replay.launch \
 - `filename_odom.pdf` - Odometry analysis report
 - `filename_imu.csv` - IMU comparison data
 - `filename_imu.pdf` - IMU analysis report
+- `filename_map.pgm` - map into ~/ship_ws/maps folder 
+- 'maps_metrics.csv` - write metrics of the last map generated
 
 ### Post-Analysis Visualization
 
@@ -276,7 +286,7 @@ python3 ~/ship_ws/src/ship_gazebo/tools/plot_imu_csv.py \
 
 ## Notes
 
-- Set `save_odom:=false` or `save_imu:=false` to skip saving CSV/PDF files and only print results to terminal
+- Set `save_odom:=false` or `save_imu:=false` or `save_map:=false` to skip saving CSV/PDF files and only print results to terminal
 - Always use `use_sim_time:=true` when running nodes with simulated data
 - The first 10 seconds of IMU data are skipped to allow system stabilization
 - Odometry analysis automatically starts when motion is detected and stops after 5 seconds of no motion

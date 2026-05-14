@@ -57,8 +57,10 @@ install(PROGRAMS
   src/odom_comparator.py
   src/imu_comparator.py
   src/rgbd_image_relay.py
+  src/map_analyzer.py
   tools/plot_odom_csv.py
   tools/plot_imu_csv.py
+  tools/show_maps_metrics.py
   DESTINATION lib/${PROJECT_NAME}
 )
 

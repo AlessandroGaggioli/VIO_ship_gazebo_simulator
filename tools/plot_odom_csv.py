@@ -1,15 +1,10 @@
 #!/usr/bin/env python3
 """
-Script to read and plot odometry CSV data from odom_comparator output.
-Generates comparison plots for ground truth vs estimated odometry.
+Offline odometry CSV plotter with layout matching odom_comparator.py.
+Reads CSV output from odom_comparator node and displays evaluation plots.
 
 Usage:
-    python plot_odom_csv.py [path_to_csv] [--save output_image.png] [--pdf output_image.pdf]
-
-- If no CSV path is provided, defaults to "odom_data.csv" in current directory.
-- The optional --save flag saves the plot as PNG.
-- The optional --pdf flag saves the plot as PDF.
-- Plots position error and orientation error over time.
+    python plot_odom_csv.py [path_to_csv]
 """
 
 import argparse
@@ -17,7 +12,20 @@ import csv
 import sys
 from pathlib import Path
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import numpy as np
+
+# Color palette matching odom_comparator.py
+C_BG        = "#FFFFFF"
+C_PANEL     = "#F4F4F8"
+C_ACCENT    = "#534AB7"
+C_TEAL      = "#0F6E56"
+C_CORAL     = "#993C1D"
+C_AMBER     = "#854F0B"
+C_BLUE      = "#185FA5"
+C_TEXT      = "#1C1C2E"
+C_SUBTEXT   = "#5A5A7A"
+C_GRID      = "#DCDCE8"
 
 
 def load_csv(csv_path: Path):
@@ -73,93 +81,165 @@ def load_csv(csv_path: Path):
 
 
 def plot_odometry(data):
-    """Generate odometry comparison plots."""
+    """Generate odometry evaluation plots matching odom_comparator.py."""
     if not data['time']:
         print("No data to plot")
         return
     
     t = np.array(data['time'])
     
-    # Create figure with subplots
-    fig, axs = plt.subplots(3, 2, figsize=(16, 12))
-    fig.suptitle('Odometry Comparison: Ground Truth vs Estimated', fontsize=16, fontweight='bold')
-    
-    # === Row 1: Position Error ===
-    # Position error X, Y, Z
-    ax = axs[0, 0]
-    ax.plot(t, data['err_pos_x'], label='X error', color='red', linewidth=1.5)
-    ax.plot(t, data['err_pos_y'], label='Y error', color='green', linewidth=1.5)
-    ax.plot(t, data['err_pos_z'], label='Z error', color='blue', linewidth=1.5)
-    ax.set_title('Position Error (m)', fontweight='bold')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Error (m)')
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-    
-    # Position error norm
-    ax = axs[0, 1]
+    # Compute error norms
     err_pos_norm = np.sqrt(
         np.array(data['err_pos_x'])**2 + 
         np.array(data['err_pos_y'])**2 + 
         np.array(data['err_pos_z'])**2
     )
-    ax.plot(t, err_pos_norm, color='purple', linewidth=1.5)
-    ax.fill_between(t, err_pos_norm, alpha=0.3, color='purple')
-    ax.set_title('Position Error Magnitude (m)', fontweight='bold')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Error (m)')
-    ax.grid(True, alpha=0.3)
-    
-    # === Row 2: Orientation Error ===
-    # Orientation error X, Y, Z (radians)
-    ax = axs[1, 0]
-    ax.plot(t, data['err_ori_x'], label='Roll error', color='red', linewidth=1.5)
-    ax.plot(t, data['err_ori_y'], label='Pitch error', color='green', linewidth=1.5)
-    ax.plot(t, data['err_ori_z'], label='Yaw error', color='blue', linewidth=1.5)
-    ax.set_title('Orientation Error (rad)', fontweight='bold')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Error (rad)')
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-    
-    # Orientation error norm
-    ax = axs[1, 1]
     err_ori_norm = np.sqrt(
         np.array(data['err_ori_x'])**2 + 
         np.array(data['err_ori_y'])**2 + 
         np.array(data['err_ori_z'])**2
     )
-    ax.plot(t, err_ori_norm, color='orange', linewidth=1.5)
-    ax.fill_between(t, err_ori_norm, alpha=0.3, color='orange')
-    ax.set_title('Orientation Error Magnitude (rad)', fontweight='bold')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Error (rad)')
-    ax.grid(True, alpha=0.3)
     
-    # === Row 3: Velocity Error ===
+    # Create figure with three row groups
+    fig = plt.figure(figsize=(18, 14), facecolor=C_BG)
+    fig.suptitle("Odometry Evaluation Report", color=C_TEXT,
+                 fontsize=16, fontweight='bold', y=0.98)
+
+    gs_top = gridspec.GridSpec(1, 2, figure=fig,
+                               top=0.93, bottom=0.68,
+                               left=0.04, right=0.98, wspace=0.28)
+    gs_mid = gridspec.GridSpec(1, 4, figure=fig,
+                               top=0.63, bottom=0.38,
+                               left=0.04, right=0.98, wspace=0.32)
+    gs_bot = gridspec.GridSpec(2, 2, figure=fig,
+                               top=0.33, bottom=0.04,
+                               left=0.04, right=0.98,
+                               hspace=0.42, wspace=0.28)
+
+    # === ROW 1: 2D Trajectory & Position Error ===
+    # 2D Trajectory
+    ax = fig.add_subplot(gs_top[0])
+    ax.set_facecolor(C_PANEL)
+    ax.plot(data['gt_pos_x'], data['gt_pos_y'], '--', color=C_TEAL, lw=1.4, label='Ground truth', alpha=0.9)
+    ax.plot(data['est_pos_x'], data['est_pos_y'], '-', color=C_CORAL, lw=1.4, label='Estimate', alpha=0.9)
+    ax.set_xlabel('x  [m]', color=C_SUBTEXT, fontsize=8)
+    ax.set_ylabel('y  [m]', color=C_SUBTEXT, fontsize=8)
+    ax.set_title('2D Trajectory', color=C_ACCENT, fontsize=9, fontweight='bold', pad=6)
+    ax.legend(fontsize=7.5, facecolor=C_PANEL, edgecolor=C_GRID, labelcolor=C_TEXT)
+    ax.grid(True, color=C_GRID, linewidth=0.5, alpha=0.9)
+    ax.set_aspect('equal', adjustable='datalim')
+
+    # Position error magnitude
+    ax = fig.add_subplot(gs_top[1])
+    ax.set_facecolor(C_PANEL)
+    ax.plot(t, err_pos_norm, color=C_CORAL, lw=1.1, alpha=0.9)
+    ax.fill_between(t, err_pos_norm, alpha=0.12, color=C_CORAL)
+    ax.set_xlabel('t  [s]', color=C_SUBTEXT, fontsize=7)
+    ax.set_title(f'Position Error Magnitude [m]', color=C_CORAL, fontsize=9, fontweight='bold', pad=6)
+    ax.legend(fontsize=6.5, facecolor=C_PANEL, edgecolor=C_GRID, labelcolor=C_TEXT, loc='upper left')
+    ax.grid(True, color=C_GRID, linewidth=0.5, alpha=0.9)
+    ax.tick_params(colors=C_SUBTEXT, labelsize=8)
+
+    # === ROW 2: Error over time (4 panels) ===
+    # Position X, Y, Z
+    ax = fig.add_subplot(gs_mid[0])
+    ax.set_facecolor(C_PANEL)
+    ax.plot(t, data['err_pos_x'], label='X', color=C_CORAL, lw=1.1, alpha=0.9)
+    ax.plot(t, data['err_pos_y'], label='Y', color=C_AMBER, lw=1.1, alpha=0.9)
+    ax.plot(t, data['err_pos_z'], label='Z', color=C_TEAL, lw=1.1, alpha=0.9)
+    ax.set_xlabel('t  [s]', color=C_SUBTEXT, fontsize=7)
+    ax.set_title('Position Error [m]', color=C_ACCENT, fontsize=9, fontweight='bold', pad=6)
+    ax.legend(fontsize=6.5, facecolor=C_PANEL, edgecolor=C_GRID, labelcolor=C_TEXT, loc='upper left')
+    ax.grid(True, color=C_GRID, linewidth=0.5, alpha=0.9)
+    ax.tick_params(colors=C_SUBTEXT, labelsize=8)
+
+    # Orientation X, Y, Z
+    ax = fig.add_subplot(gs_mid[1])
+    ax.set_facecolor(C_PANEL)
+    ax.plot(t, data['err_ori_x'], label='X', color=C_CORAL, lw=1.1, alpha=0.9)
+    ax.plot(t, data['err_ori_y'], label='Y', color=C_AMBER, lw=1.1, alpha=0.9)
+    ax.plot(t, data['err_ori_z'], label='Z', color=C_TEAL, lw=1.1, alpha=0.9)
+    ax.set_xlabel('t  [s]', color=C_SUBTEXT, fontsize=7)
+    ax.set_title('Orientation Error [rad]', color=C_ACCENT, fontsize=9, fontweight='bold', pad=6)
+    ax.legend(fontsize=6.5, facecolor=C_PANEL, edgecolor=C_GRID, labelcolor=C_TEXT, loc='upper left')
+    ax.grid(True, color=C_GRID, linewidth=0.5, alpha=0.9)
+    ax.tick_params(colors=C_SUBTEXT, labelsize=8)
+
     # Linear velocity error
-    ax = axs[2, 0]
-    ax.plot(t, data['err_lin_x'], label='X velocity error', color='red', linewidth=1.5)
-    ax.plot(t, data['err_lin_y'], label='Y velocity error', color='green', linewidth=1.5)
-    ax.plot(t, data['err_lin_z'], label='Z velocity error', color='blue', linewidth=1.5)
-    ax.set_title('Linear Velocity Error (m/s)', fontweight='bold')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Error (m/s)')
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-    
+    ax = fig.add_subplot(gs_mid[2])
+    ax.set_facecolor(C_PANEL)
+    ax.plot(t, data['err_lin_x'], label='X', color=C_CORAL, lw=1.1, alpha=0.9)
+    ax.plot(t, data['err_lin_y'], label='Y', color=C_AMBER, lw=1.1, alpha=0.9)
+    ax.plot(t, data['err_lin_z'], label='Z', color=C_TEAL, lw=1.1, alpha=0.9)
+    ax.set_xlabel('t  [s]', color=C_SUBTEXT, fontsize=7)
+    ax.set_title('Linear Vel. Error [m/s]', color=C_ACCENT, fontsize=9, fontweight='bold', pad=6)
+    ax.legend(fontsize=6.5, facecolor=C_PANEL, edgecolor=C_GRID, labelcolor=C_TEXT, loc='upper left')
+    ax.grid(True, color=C_GRID, linewidth=0.5, alpha=0.9)
+    ax.tick_params(colors=C_SUBTEXT, labelsize=8)
+
     # Angular velocity error
-    ax = axs[2, 1]
-    ax.plot(t, data['err_ang_x'], label='X angular error', color='red', linewidth=1.5)
-    ax.plot(t, data['err_ang_y'], label='Y angular error', color='green', linewidth=1.5)
-    ax.plot(t, data['err_ang_z'], label='Z angular error', color='blue', linewidth=1.5)
-    ax.set_title('Angular Velocity Error (rad/s)', fontweight='bold')
-    ax.set_xlabel('Time (s)')
-    ax.set_ylabel('Error (rad/s)')
-    ax.legend()
-    ax.grid(True, alpha=0.3)
+    ax = fig.add_subplot(gs_mid[3])
+    ax.set_facecolor(C_PANEL)
+    ax.plot(t, data['err_ang_x'], label='X', color=C_CORAL, lw=1.1, alpha=0.9)
+    ax.plot(t, data['err_ang_y'], label='Y', color=C_AMBER, lw=1.1, alpha=0.9)
+    ax.plot(t, data['err_ang_z'], label='Z', color=C_TEAL, lw=1.1, alpha=0.9)
+    ax.set_xlabel('t  [s]', color=C_SUBTEXT, fontsize=7)
+    ax.set_title('Angular Vel. Error [rad/s]', color=C_ACCENT, fontsize=9, fontweight='bold', pad=6)
+    ax.legend(fontsize=6.5, facecolor=C_PANEL, edgecolor=C_GRID, labelcolor=C_TEXT, loc='upper left')
+    ax.grid(True, color=C_GRID, linewidth=0.5, alpha=0.9)
+    ax.tick_params(colors=C_SUBTEXT, labelsize=8)
+
+    # === ROW 3: Statistics ===
+    # Compute basic stats
+    pos_rmse = np.sqrt(np.mean(err_pos_norm**2))
+    ori_rmse = np.sqrt(np.mean(err_ori_norm**2))
     
-    plt.tight_layout()
+    # Position bias per axis
+    ax = fig.add_subplot(gs_bot[0, 0])
+    ax.set_facecolor(C_PANEL)
+    bias_pos = [np.mean(data['err_pos_x']), np.mean(data['err_pos_y']), np.mean(data['err_pos_z'])]
+    bars = ax.bar(['x', 'y', 'z'], bias_pos, color=C_BLUE, edgecolor=C_GRID, linewidth=0.5, width=0.4, alpha=0.8)
+    ax.axhline(0, color=C_SUBTEXT, lw=0.8)
+    for i, v in enumerate(bias_pos):
+        ax.text(i, v + np.sign(v) * max(abs(bias_pos)) * 0.04, f"{v:.4f}", ha='center',
+                va='bottom' if v >= 0 else 'top', color=C_TEXT, fontsize=6.5, fontweight='bold')
+    ax.set_ylabel('Bias [m]', color=C_SUBTEXT, fontsize=8)
+    ax.set_title('Bias position per axis  [m]', color=C_BLUE, fontsize=9, fontweight='bold', pad=6)
+    ax.tick_params(labelsize=9, labelcolor=C_SUBTEXT)
+    ax.grid(True, color=C_GRID, linewidth=0.5, alpha=0.9, axis='y')
+
+    # Orientation bias per axis
+    ax = fig.add_subplot(gs_bot[0, 1])
+    ax.set_facecolor(C_PANEL)
+    bias_ori = [np.mean(data['err_ori_x']), np.mean(data['err_ori_y']), np.mean(data['err_ori_z'])]
+    bars = ax.bar(['x', 'y', 'z'], bias_ori, color=C_BLUE, edgecolor=C_GRID, linewidth=0.5, width=0.4, alpha=0.8)
+    ax.axhline(0, color=C_SUBTEXT, lw=0.8)
+    for i, v in enumerate(bias_ori):
+        ax.text(i, v + np.sign(v) * max(abs(bias_ori)) * 0.04, f"{v:.4f}", ha='center',
+                va='bottom' if v >= 0 else 'top', color=C_TEXT, fontsize=6.5, fontweight='bold')
+    ax.set_ylabel('Bias [rad]', color=C_SUBTEXT, fontsize=8)
+    ax.set_title('Bias orientation per axis  [rad]', color=C_BLUE, fontsize=9, fontweight='bold', pad=6)
+    ax.tick_params(labelsize=9, labelcolor=C_SUBTEXT)
+    ax.grid(True, color=C_GRID, linewidth=0.5, alpha=0.9, axis='y')
+
+    # Position stats
+    ax = fig.add_subplot(gs_bot[1, 0])
+    ax.axis('off')
+    ax.set_facecolor(C_PANEL)
+    ax.text(0.05, 0.85, 'Position Stats', transform=ax.transAxes, fontsize=9, fontweight='bold', color=C_TEXT)
+    ax.text(0.05, 0.70, f"RMSE: {pos_rmse:.5f} m", transform=ax.transAxes, fontsize=8, color=C_SUBTEXT)
+    ax.text(0.05, 0.55, f"Max: {np.max(err_pos_norm):.5f} m", transform=ax.transAxes, fontsize=8, color=C_SUBTEXT)
+    ax.text(0.05, 0.40, f"Mean: {np.mean(err_pos_norm):.5f} m", transform=ax.transAxes, fontsize=8, color=C_SUBTEXT)
+    
+    # Orientation stats
+    ax = fig.add_subplot(gs_bot[1, 1])
+    ax.axis('off')
+    ax.set_facecolor(C_PANEL)
+    ax.text(0.05, 0.85, 'Orientation Stats', transform=ax.transAxes, fontsize=9, fontweight='bold', color=C_TEXT)
+    ax.text(0.05, 0.70, f"RMSE: {ori_rmse:.5f} rad", transform=ax.transAxes, fontsize=8, color=C_SUBTEXT)
+    ax.text(0.05, 0.55, f"Max: {np.max(err_ori_norm):.5f} rad", transform=ax.transAxes, fontsize=8, color=C_SUBTEXT)
+    ax.text(0.05, 0.40, f"Mean: {np.mean(err_ori_norm):.5f} rad", transform=ax.transAxes, fontsize=8, color=C_SUBTEXT)
+
     plt.show()
 
 

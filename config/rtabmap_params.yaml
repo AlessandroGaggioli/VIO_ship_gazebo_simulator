@@ -42,14 +42,14 @@
     # Creazione della Mappa 2D (Occupancy Grid)
     RGBD/CreateOccupancyGrid: 'true'
     RGBD/ProximityBySpace: 'true'
-    Grid/Sensor: '1'                 # 1 = depth/stereo
-    Grid/DepthDecimation: '2'        # Decimazione per alleggerire il carico CPU
-    Grid/CellSize: '0.05'            # Risoluzione mappa 5cm
+    Grid/Sensor: '1'  # 1 = depth/stereo
+    Grid/DepthDecimation: '2' # Decimazione per alleggerire il carico CPU
+    Grid/CellSize: '0.05' # Risoluzione mappa 5cm
     Grid/RangeMin: '0.001'
-    Grid/RangeMax: '3.0'
+    Grid/RangeMax: '2.0'
     Grid/RayTracing: 'true'
     Grid/MapFrameProjection: 'false'
-    Grid/3D: 'false'                 # Proiezione 2D
+    Grid/3D: 'false'  # Proiezione 2D
     
     # Filtraggio Ostacoli/Pavimento
     Grid/NormalsSegmentation: 'false'
@@ -57,8 +57,8 @@
     Grid/MaxObstacleHeight: '0.5'
     
     # Filtraggio Rumore Stereo
-    Grid/NoiseFilteringRadius: '0.0'
-    Grid/NoiseFilteringMinNeighbors: '0'
+    Grid/NoiseFilteringRadius: '0.1'
+    Grid/NoiseFilteringMinNeighbors: '5'
 
     # Ottimizzazione
     Optimizer/GravitySigma: '0.1'

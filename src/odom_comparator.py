@@ -26,6 +26,8 @@ C_TEXT      = "#1C1C2E"
 C_SUBTEXT   = "#5A5A7A"
 C_GRID      = "#DCDCE8"
 
+A4_PORTRAIT_INCHES = (8.27, 11.69)
+
 
 class OdomComparator(Node):
 
@@ -370,12 +372,15 @@ class OdomComparator(Node):
             try:
                 output_file = Path(pdf_path)
                 output_file.parent.mkdir(parents=True, exist_ok=True)
+                fig.set_size_inches(*A4_PORTRAIT_INCHES, forward=True)
                 fig.savefig(output_file, format='pdf', dpi=150, bbox_inches='tight')
                 self.get_logger().info(f"Odometry report saved to {output_file}.")
             except Exception as e:
                 self.get_logger().error(f"Failed to save PDF: {e}")
         else:
+            # Show plot when not saving
             plt.show()
+            plt.close(fig)
 
     def save_to_csv(self):
         """Save odometry tracking history to CSV file."""

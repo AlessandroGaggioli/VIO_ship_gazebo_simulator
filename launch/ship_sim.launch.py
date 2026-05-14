@@ -111,11 +111,11 @@ def launch_setup(context, *args, **kwargs):
     # based on the robot's initial position in the world
     def get_robot_spawn_from_sdf(sdf_path):
         try:
-            # Legge il file riga per riga e ignora le righe vuote iniziali
+            # Reads the file line by line and ignores the initial empty lines
             with open(sdf_path, 'r') as f:
                 lines = f.readlines()
             
-            # Trova dove inizia veramente l'XML e unisce il resto
+            # Finds where the XML actually starts and joins the rest
             xml_content = ""
             for line in lines:
                 if "<?xml" in line or xml_content:
@@ -162,7 +162,7 @@ def launch_setup(context, *args, **kwargs):
         name='base_link_tf',
         parameters=[{'use_sim_time': True}],
         arguments=[
-            '--x', '0', '--y', '0', '--z', '0.010',  # da base_joint nel SDF
+            '--x', '0', '--y', '0', '--z', '0.010',  # from base_joint in the SDF
             '--roll', '0', '--pitch', '0', '--yaw', '0',
             '--frame-id', 'base_footprint',
             '--child-frame-id', 'base_link'
@@ -175,7 +175,7 @@ def launch_setup(context, *args, **kwargs):
         name='camera_link_left_base_tf',
         parameters=[{'use_sim_time': True}],
         arguments=[
-            '--x', '0.15', '--y', '0.06', '--z', '0.1',  # da camera_left_joint nel SDF
+            '--x', '0.15', '--y', '0.06', '--z', '0.1',  # from camera_left_joint in the SDF
             '--roll', '0', '--pitch', '0.2', '--yaw', '0',
             '--frame-id', 'base_link',
             '--child-frame-id', 'camera_link_left'
@@ -188,7 +188,7 @@ def launch_setup(context, *args, **kwargs):
         name='camera_link_right_base_tf',
         parameters=[{'use_sim_time': True}],
         arguments=[
-            '--x', '0.15', '--y', '-0.06', '--z', '0.1',  # da camera_right_joint nel SDF
+            '--x', '0.15', '--y', '-0.06', '--z', '0.1',  # from camera_right_joint in the SDF
             '--roll', '0', '--pitch', '0.2', '--yaw', '0',
             '--frame-id', 'base_link',
             '--child-frame-id', 'camera_link_right'
