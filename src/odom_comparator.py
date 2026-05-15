@@ -8,6 +8,7 @@ from pathlib import Path
 from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import JointState
+from rtabmap_msgs.msg import OdomInfo
 import message_filters
 import matplotlib.pyplot as plt
 from scipy.spatial.transform import Rotation as R
@@ -37,6 +38,7 @@ class OdomComparator(Node):
         self.declare_parameter('gt_robot_topic', '/robot/ground_truth/odom')
         self.declare_parameter('ship_joints_topic', '/ship/joint_states')
         self.declare_parameter('est_topic', '')
+        self.declare_parameter('odom_info_topic', '/odom_info')
         self.declare_parameter('sync_slop', 0.05)
         self.declare_parameter('n_segments', 5)
         self.declare_parameter('csv_output_path', '')
@@ -45,9 +47,10 @@ class OdomComparator(Node):
         self.sub_gt_robot    = message_filters.Subscriber(self, Odometry,  self.get_parameter('gt_robot_topic').value,   qos_profile=qos_profile_sensor_data)
         self.sub_ship_joints = message_filters.Subscriber(self, JointState, self.get_parameter('ship_joints_topic').value, qos_profile=qos_profile_sensor_data)
         self.sub_est         = message_filters.Subscriber(self, Odometry,  self.get_parameter('est_topic').value,        qos_profile=qos_profile_sensor_data)
+        self.sub_odom_info   = message_filters.Subscriber(self, OdomInfo,  self.get_parameter('odom_info_topic').value,  qos_profile=qos_profile_sensor_data)
 
         self.ts = message_filters.ApproximateTimeSynchronizer(
-            [self.sub_gt_robot, self.sub_ship_joints, self.sub_est],
+            [self.sub_gt_robot, self.sub_ship_joints, self.sub_est, self.sub_odom_info],
             queue_size=2000, slop=self.get_parameter('sync_slop').value)
         self.ts.registerCallback(self.sync_callback)
 
@@ -59,6 +62,7 @@ class OdomComparator(Node):
             't': [], 'gt': [], 'est': [],
             'e_pos': [], 'e_ori': [], 'e_lin': [], 'e_ang': [],
             'cmd_speed': [],
+            'lost': [], 'inliers': [], 'matches': [], 'features': [],
         }
 
         self.cmd_speed = 0.0
@@ -83,7 +87,7 @@ class OdomComparator(Node):
             self.motion_started = True
             self.get_logger().info("Motion detected — waiting for first synchronized message to start tracking.")
 
-    def sync_callback(self, msg_gt_robot, msg_ship_joints, msg_est):
+    def sync_callback(self, msg_gt_robot, msg_ship_joints, msg_est, msg_odom_info):
         if not self.motion_started:
             return
 
@@ -140,6 +144,10 @@ class OdomComparator(Node):
         self.history['e_lin'].append(self._vec(msg_est.twist.twist.linear)  - gt_v_lin)
         self.history['e_ang'].append(self._vec(msg_est.twist.twist.angular) - gt_v_ang)
         self.history['cmd_speed'].append(self.cmd_speed)
+        self.history['lost'].append(bool(msg_odom_info.lost))
+        self.history['inliers'].append(int(msg_odom_info.inliers))
+        self.history['matches'].append(int(msg_odom_info.matches))
+        self.history['features'].append(int(msg_odom_info.features))
 
     ################
     # metrics 
@@ -178,6 +186,50 @@ class OdomComparator(Node):
         m['bias_pos'] = np.mean(e_pos, axis=0)
         m['bias_ori'] = np.mean(e_ori, axis=0)
         return m
+
+    def _vo_health(self, lost_arr, inliers_arr, t):
+        """VO tracking health from /odom_info.
+
+        - drops:        rising-edge transitions of `lost` (each event = one failure)
+        - lost_frames:  number of frames where `lost=True`
+        - lost_ratio:   fraction of frames lost
+        - max_outage_s: longest contiguous lost streak (seconds)
+        - inliers_*:    inlier statistics (excluding lost frames)
+        """
+        n = len(lost_arr)
+        if n == 0:
+            return dict(drops=0, lost_frames=0, lost_ratio=0.0,
+                        max_outage_s=0.0, inliers_mean=0.0, inliers_min=0)
+
+        lost = np.asarray(lost_arr, dtype=bool)
+        inliers = np.asarray(inliers_arr, dtype=float)
+        t_arr = np.asarray(t, dtype=float)
+
+        # Rising-edge events. If the first frame is lost, count it as a drop.
+        d = np.diff(lost.astype(np.int8))
+        drops = int(np.sum(d > 0)) + (1 if lost[0] else 0)
+
+        lost_frames = int(np.sum(lost))
+        lost_ratio  = lost_frames / n
+
+        # Longest contiguous lost streak (in seconds, using median dt)
+        max_streak_n = 0
+        cur = 0
+        for x in lost:
+            cur = cur + 1 if x else 0
+            if cur > max_streak_n:
+                max_streak_n = cur
+        med_dt = float(np.median(np.diff(t_arr))) if len(t_arr) > 1 else 0.05
+        max_outage_s = max_streak_n * med_dt
+
+        # Inlier stats over healthy frames only
+        healthy = inliers[~lost] if (~lost).any() else inliers
+        inliers_mean = float(np.mean(healthy)) if len(healthy) else 0.0
+        inliers_min  = int(np.min(inliers)) if len(inliers) else 0
+
+        return dict(drops=drops, lost_frames=lost_frames, lost_ratio=lost_ratio,
+                    max_outage_s=max_outage_s,
+                    inliers_mean=inliers_mean, inliers_min=inliers_min)
         
     @staticmethod
     def _panel(ax, title, color=None):
@@ -253,10 +305,11 @@ class OdomComparator(Node):
         ax_traj.legend(fontsize=7.5, facecolor=C_PANEL, edgecolor=C_GRID, labelcolor=C_TEXT)
         ax_traj.set_aspect('equal', adjustable='datalim')
 
-        # Global metrics 
+        # Global metrics
         ax_tab = fig.add_subplot(gs_top[1])
         ax_tab.set_title("Global Metrics", color=C_ACCENT, fontsize=9, fontweight='bold', pad=6)
         p, o = m['pos'], m['ori']
+        vo = self._vo_health(h['lost'], h['inliers'], t)
         rows = [
             ("— Position —",          ""),
             ("  RMSE",                 f"{p['rmse']:.4f} m"),
@@ -271,8 +324,13 @@ class OdomComparator(Node):
             ("  ATE mean",            f"{o['mean']:.4f} rad"),
             ("  ATE max",          f"{o['mx']:.4f} rad"),
             ("  Final error",        f"{o['final']:.4f} rad"),
+            ("— VO Health —",         ""),
+            ("  Drops",                f"{vo['drops']}"),
+            ("  Lost frames",          f"{vo['lost_frames']} / {len(t)}  ({vo['lost_ratio']*100:.2f} %)"),
+            ("  Max outage",           f"{vo['max_outage_s']:.2f} s"),
+            ("  Inliers (mean / min)", f"{vo['inliers_mean']:.0f} / {vo['inliers_min']}"),
         ]
-        self._kv(ax_tab, rows, dy=0.073)
+        self._kv(ax_tab, rows, y0=0.94, dy=0.054, fs=8.0)
 
 
         # ─────────────────────────────────────────────────────────────────
@@ -420,6 +478,8 @@ class OdomComparator(Node):
             fieldnames.extend(['err_ang_x', 'err_ang_y', 'err_ang_z'])
             # Command speed
             fieldnames.append('cmd_speed')
+            # VO health from /odom_info
+            fieldnames.extend(['vo_lost', 'vo_inliers', 'vo_matches', 'vo_features'])
             
             with open(output_file, 'w', newline='') as csvfile:
                 writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -447,6 +507,10 @@ class OdomComparator(Node):
                         'err_ang_y': f"{h['e_ang'][i, 1]:.6f}",
                         'err_ang_z': f"{h['e_ang'][i, 2]:.6f}",
                         'cmd_speed': f"{h['cmd_speed'][i]:.6f}",
+                        'vo_lost':     int(h['lost'][i]),
+                        'vo_inliers':  int(h['inliers'][i]),
+                        'vo_matches':  int(h['matches'][i]),
+                        'vo_features': int(h['features'][i]),
                     }
                     writer.writerow(row)
             

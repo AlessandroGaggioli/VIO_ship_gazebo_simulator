@@ -1,0 +1,249 @@
+trajectory:
+- name: Segment 1
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 1.807
+- name: Segment 2
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.4076644415474052
+  duration: 0.996
+- name: Segment 3
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 1.217
+- name: Segment 4
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.4076644415474052
+  duration: 1.0715
+- name: Segment 5
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 3.1065
+- name: Segment 6
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: -0.4076644415474052
+  duration: 3.67
+- name: Segment 7
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 3.642
+- name: Segment 8
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: -0.4076644415474052
+  duration: 4.83
+- name: Segment 9
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 2.3775
+- name: Segment 10
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: -0.4076644415474052
+  duration: 1.4715
+- name: Segment 11
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 2.302
+- name: Segment 12
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: -0.4076644415474052
+  duration: 0.454
+- name: Segment 13
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.4076644415474052
+  duration: 0.295
+- name: Segment 14
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: -0.4076644415474052
+  duration: 0.51
+- name: Segment 15
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.4076644415474052
+  duration: 0.511
+- name: Segment 16
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 4.0395
+- name: Segment 17
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.4076644415474052
+  duration: 1.6805
+- name: Segment 18
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 2.738
+- name: Segment 19
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: -0.4076644415474052
+  duration: 4.3555
+- name: Segment 20
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 2.595
+- name: Segment 21
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: -0.4076644415474052
+  duration: 6.094
+- name: Segment 22
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 4.1385
+- name: Segment 23
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.4076644415474052
+  duration: 2.2475
+- name: Segment 24
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 0.8375
+- name: Segment 25
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: -0.4076644415474052
+  duration: 0.6125
+- name: Segment 26
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 1.1165
+- name: Segment 27
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: -0.4076644415474052
+  duration: 2.245
+- name: Segment 28
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 2.169
+- name: Segment 29
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.4076644415474052
+  duration: 9.9795
+- name: Segment 30
+  linear_x: 0.2017938985659656
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 2.1545
+- name: Segment 31
+  linear_x: 0.0
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 4.625

@@ -1,0 +1,41 @@
+trajectory:
+- name: Segment 1
+  linear_x: 0.16677181699666576
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 5.6405
+- name: Segment 2
+  linear_x: 0.16677181699666576
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: -0.4035877971319312
+  duration: 2.0185
+- name: Segment 3
+  linear_x: 0.16677181699666576
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 1.9015
+- name: Segment 4
+  linear_x: 0.16677181699666576
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.4035877971319312
+  duration: 31.3575
+- name: Segment 5
+  linear_x: 0.0
+  linear_y: 0.0
+  linear_z: 0.0
+  angular_x: 0.0
+  angular_y: 0.0
+  angular_z: 0.0
+  duration: 2.235

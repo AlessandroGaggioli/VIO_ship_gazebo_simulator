@@ -19,6 +19,7 @@
   <exec_depend>std_msgs</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>message_filters</exec_depend>
+  <exec_depend>rtabmap_msgs</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

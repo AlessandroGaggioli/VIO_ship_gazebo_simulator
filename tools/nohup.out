@@ -1,0 +1,27 @@
+================================================================
+  Batch run                bag = motion_line
+  Output root              /home/alienware/Gaggioli/SimulationResults/motion_line
+  File prefix              mot_line
+  Combinations             true:false true:true false:false false:true
+  Runs per combo           A B C D E F G H I J
+  Logs                     /tmp/ship_batch_logs
+================================================================
+[12:50:44] SKIP   comp_on_3dof_off/A — PDF already exists
+[12:50:44] SKIP   comp_on_3dof_off/B — PDF already exists
+[12:50:44] START  comp_on_3dof_off/C  comp=true 3dof=false
+[12:51:51]   PDF ready after 64s — waiting 10s for imu/map
+[12:52:01]   Cleaning up...
+[12:52:05] DONE   comp_on_3dof_off/C — cooldown 12s
+[12:52:17] START  comp_on_3dof_off/D  comp=true 3dof=false
+
+[12:52:33] Interrupted — terminating background launches...
+================================================================
+  Batch run                bag = motion_circle
+  Output root              /home/alienware/Gaggioli/SimulationResults/motion_circle
+  File prefix              mot_circle
+  Combinations             true:false true:true false:false false:true
+  Runs per combo           A B C D E F G H I J
+  Logs                     /tmp/ship_batch_logs
+================================================================
+[12:52:45] SKIP   comp_on_3dof_off/A — PDF already exists
+[12:52:45] START  comp_on_3dof_off/B  comp=true 3dof=false
